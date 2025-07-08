@@ -37,7 +37,7 @@ class LogReader:
             if 'metadata' in line:
                 audio_id_map[line['id']] = Path(line['metadata']['wav_name']).stem
             else:
-                assert line['id'] in outputs_by_audio, \
+                assert line['id'] in audio_id_map, \
                     f'{line["id"]} not associated with audio file'
                 audio_name = audio_id_map[line['id']]
                 if audio_name not in outputs_by_audio:
