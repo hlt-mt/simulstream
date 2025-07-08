@@ -70,7 +70,7 @@ def score_st(
 
 def main(args: argparse.Namespace):
     LOGGER.info(f"Loading evaluation configuration from {args.eval_config}")
-    eval_config = yaml_config(args.server_config)
+    eval_config = yaml_config(args.eval_config)
     log_reader = LogReader(eval_config, args.log_file)
     reference_reader = ReferenceReader(args.references)
     transcripts_reader = ReferenceReader(args.transcripts)
