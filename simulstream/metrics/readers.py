@@ -190,7 +190,7 @@ class ReferencesReader:
         reference_by_file = OrderedDict()
         for reference in references:
             with open(reference, 'r', encoding='utf-8') as f:
-                reference_by_file[Path(reference).stem] = [l.strip() for l in f.readlines()]
+                reference_by_file[Path(reference).stem] = [line.strip() for line in f.readlines()]
         return reference_by_file
 
     def get_reference_texts(self) -> Dict[str, List[str]]:

@@ -20,7 +20,8 @@ import torch
 from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq
 
 from simulstream.server.speech_processors import SAMPLE_RATE
-from simulstream.server.speech_processors.sliding_window_retranslation import SlidingWindowRetranslator
+from simulstream.server.speech_processors.sliding_window_retranslation import \
+    SlidingWindowRetranslator
 
 
 class HFSlidingWindowRetranslator(SlidingWindowRetranslator):

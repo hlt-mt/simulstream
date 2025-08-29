@@ -109,11 +109,13 @@ def connection_handler_factory(
                         if 'target_lang' in data:
                             speech_processor.set_target_language(data["target_lang"])
                             LOGGER.debug(
-                                f"Client {client_id} target language set to: {data['target_lang']}")
+                                f"Client {client_id} target language set to: "
+                                f"{data['target_lang']}")
                         if 'source_lang' in data:
                             speech_processor.set_source_language(data["source_lang"])
                             LOGGER.debug(
-                                f"Client {client_id} source language set to: {data['source_lang']}")
+                                f"Client {client_id} source language set to: "
+                                f"{data['source_lang']}")
                         if 'metrics_metadata' in data:
                             METRICS_LOGGER.info(json.dumps({
                                 "id": client_id,
