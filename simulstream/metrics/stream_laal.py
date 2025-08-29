@@ -16,11 +16,12 @@ import argparse
 import logging
 from typing import Dict, List, Tuple
 
+import mweralign
+
 import simulstream
 from simulstream.config import yaml_config
 from simulstream.metrics.readers import LogReader, YamlReferenceReader, \
     ReferenceSentenceDefinition, OutputWithDelays, text_items
-from simulstream.metrics.resegmenter import levenshtein_align_hypothesis_to_reference
 
 
 _VERSION = "2.0"
@@ -99,9 +100,9 @@ def score_streamlaal(
     for name, ref_sentences_def in ref_dict.items():
         hypo_with_delays = hypo_dict[name]
 
-        resegmented_hypos = levenshtein_align_hypothesis_to_reference(
-            [hypo_with_delays.final_text],
-            [sentence_def.content for sentence_def in ref_sentences_def])
+        resegmented_hypos = mweralign.align_texts(
+            "\n".join([sentence_def.content for sentence_def in ref_sentences_def]),
+            hypo_with_delays.final_text).split("\n")
 
         assert len(resegmented_hypos) == len(ref_sentences_def), \
             f"Reference ({name}) has mismatched number of target ({len(ref_sentences_def)}) " \

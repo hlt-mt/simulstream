@@ -114,7 +114,7 @@ class LogReader:
                     tokens = tokens[:-len(line['deleted_tokens'])]
                     # update the current output by removing text and corresponding delays
                     new_output = OutputWithDelays(
-                        self.detokenizer(''.join(tokens)),
+                        self.detokenizer(tokens),
                         current_output.ideal_delays,
                         current_output.computational_aware_delays)
                     removed_tokens = current_output.text_len(self.latency_unit) - \
@@ -138,14 +138,14 @@ class LogReader:
                 # for the first line, we initialize the OutputWithDelays with the partial text and
                 # assigning the ideal delay anc computational-aware one to all its units
                 if current_output is None:
-                    current_output = OutputWithDelays(self.detokenizer(''.join(tokens)), [], [])
+                    current_output = OutputWithDelays(self.detokenizer(tokens), [], [])
                     num_units = current_output.text_len(self.latency_unit)
                     current_output.ideal_delays = [line_delay] * num_units
                     current_output.computational_aware_delays = [line_comp_aware_delay] * num_units
                 else:
                     # update the current output by adding corresponding delays
                     new_output = OutputWithDelays(
-                        self.detokenizer(''.join(tokens)),
+                        self.detokenizer(tokens),
                         current_output.ideal_delays,
                         current_output.computational_aware_delays)
                     added_units = new_output.text_len(self.latency_unit) - \
@@ -158,13 +158,13 @@ class LogReader:
                     # we update the latency of the last word
                     if self.latency_unit == "word":
                         previous_ending_word_idx = current_output.text_len("word") - 1
-                        assert previous_ending_word_idx >= 0
-                        previous_ending_word_after_update = new_output.text_items("word")[
-                            previous_ending_word_idx]
-                        if previous_ending_word_after_update != current_output.last_word():
-                            new_output.ideal_delays[previous_ending_word_idx] = line_delay
-                            new_output.computational_aware_delays[previous_ending_word_idx] = \
-                                line_comp_aware_delay
+                        if previous_ending_word_idx >= 0:
+                            previous_ending_word_after_update = new_output.text_items("word")[
+                                previous_ending_word_idx]
+                            if previous_ending_word_after_update != current_output.last_word():
+                                new_output.ideal_delays[previous_ending_word_idx] = line_delay
+                                new_output.computational_aware_delays[previous_ending_word_idx] = \
+                                    line_comp_aware_delay
                     current_output = new_output
             outputs[audio] = current_output
         return outputs
@@ -190,7 +190,7 @@ class ReferencesReader:
         reference_by_file = OrderedDict()
         for reference in references:
             with open(reference, 'r', encoding='utf-8') as f:
-                reference_by_file[Path(reference).stem] = f.readlines()
+                reference_by_file[Path(reference).stem] = [l.strip() for l in f.readlines()]
         return reference_by_file
 
     def get_reference_texts(self) -> Dict[str, List[str]]:

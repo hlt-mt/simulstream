@@ -17,10 +17,11 @@ import logging
 import sys
 from typing import Dict, List
 
+import mweralign
+
 import simulstream
 from simulstream.config import yaml_config
 from simulstream.metrics.readers import LogReader, ReferencesReader, YamlReferenceReader
-from simulstream.metrics.resegmenter import levenshtein_align_hypothesis_to_reference
 
 
 logging.basicConfig(
@@ -51,7 +52,7 @@ def score_st(
             f"and source lines ({len(src_lines)})"
         hypo = hypo_dict[name]
 
-        resegm_hypos = levenshtein_align_hypothesis_to_reference([hypo], ref_lines)
+        resegm_hypos = mweralign.align_texts("\n".join(ref_lines), hypo).split("\n")
 
         assert len(ref_lines) == len(resegm_hypos), \
             f"Reference ({name}) has mismatched number of target ({len(ref_lines)}) " \
