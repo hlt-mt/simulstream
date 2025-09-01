@@ -30,8 +30,8 @@ simulstream_server = "simulstream.server.websocket_server:cli_main"
 simulstream_wavs_client = "simulstream.client.wav_reader_client:cli_main"
 
 # Evaluation
-simulstream_comet = "simulstream.metrics.comet:cli_main"
-simulstream_streamlaal = "simulstream.metrics.stream_laal:cli_main"
+simulstream_score_quality = "simulstream.metrics.score_quality:cli_main"
+simulstream_score_latency = "simulstream.metrics.score_latency:cli_main"
 
 [project.optional-dependencies]
 dev = [
