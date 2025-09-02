@@ -18,7 +18,8 @@ import logging
 import simulstream
 from simulstream.config import yaml_config
 from simulstream.metrics.readers import LogReader, YamlReferenceReader
-from simulstream.metrics.scorers.latency import LATENCY_SCORER_REGISTRY, LatencyScorer, LatencyScoringSample
+from simulstream.metrics.scorers.latency import LATENCY_SCORER_REGISTRY, LatencyScorer, \
+    LatencyScoringSample
 
 
 logging.basicConfig(

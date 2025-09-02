@@ -18,7 +18,8 @@ import logging
 import simulstream
 from simulstream.config import yaml_config
 from simulstream.metrics.readers import LogReader, ReferencesReader, YamlReferenceReader
-from simulstream.metrics.scorers.quality import QUALITY_SCORER_REGISTRY, QualityScorer, QualityScoringSample
+from simulstream.metrics.scorers.quality import QUALITY_SCORER_REGISTRY, QualityScorer, \
+    QualityScoringSample
 
 
 logging.basicConfig(
@@ -79,8 +80,8 @@ def main(scorer_cls: type[QualityScorer], args: argparse.Namespace):
                 f"Reference ({audio_name}) has mismatched number of target ({len(reference)}) " \
                 f"and source lines ({len(transcript)})"
 
-        scoring_samples.append(
-            QualityScoringSample(audio_name, hypothesis_dictionary[audio_name], reference, transcript))
+        scoring_samples.append(QualityScoringSample(
+            audio_name, hypothesis_dictionary[audio_name], reference, transcript))
 
     LOGGER.info("Scoring outputs")
     score = scorer.score(scoring_samples)

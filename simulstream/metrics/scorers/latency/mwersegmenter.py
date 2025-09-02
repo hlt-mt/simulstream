@@ -50,7 +50,8 @@ class MWERSegmenterBasedLatencyScorer(LatencyScorer):
             segment_len = len(text_items(segment, self.latency_unit))
             segmented_delays.append(delays[index:index + segment_len])
             index += segment_len
-        assert len(delays) == index, f"Index {index} should have reached end of delays ({len(delays)})"
+        assert len(delays) == index, \
+            f"Index {index} should have reached end of delays ({len(delays)})"
         return segmented_delays
 
     def score(self, samples: List[LatencyScoringSample]) -> LatencyScores:
