@@ -33,3 +33,12 @@ test:
     - python -m unittest discover -s uts -p "*.py"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+docs:
+  stage: build
+  script:
+    - sphinx-build -b html docs/source docs/build
+  artifacts:
+    paths:
+      - docs/build
+    expire_in: 1 week
