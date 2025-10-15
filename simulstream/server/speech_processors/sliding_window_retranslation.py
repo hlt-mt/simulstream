@@ -59,6 +59,7 @@ class SlidingWindowRetranslator(BaseSpeechProcessor):
         self.matching_threshold = getattr(self.config, "matching_threshold", 0.1)
         self.override_on_failed_match = getattr(self.config, "override_on_failed_match", False)
         self.max_tokens_per_second = getattr(self.config, "max_tokens_per_second", 10)
+        self.within_first_window = True
 
     @abstractmethod
     def _tokens_to_string(self, tokens: List[str]) -> str:
@@ -101,7 +102,7 @@ class SlidingWindowRetranslator(BaseSpeechProcessor):
                 max(history_initial_tokens - initial_discarded_tokens, 0):history_initial_tokens]
             self.text_history = new_history_initial_tokens + matching_and_last_tokens
         else:
-            if self.override_on_failed_match:
+            if self.within_first_window or self.override_on_failed_match:
                 deleted_tokens = self.text_history
                 deleted_string = self._tokens_to_string(self.text_history)
             else:
@@ -122,7 +123,8 @@ class SlidingWindowRetranslator(BaseSpeechProcessor):
             new_speech: torch.Tensor,
             generated_tokens: List[str],
             new_output: IncrementalOutput) -> None:
-        pass
+        if self.within_first_window and len(self.audio_history) >= self.window_len:
+            self.within_first_window = False
 
     def _update_text_history(
             self,
@@ -130,3 +132,7 @@ class SlidingWindowRetranslator(BaseSpeechProcessor):
             generated_tokens: List[str],
             new_output: IncrementalOutput) -> None:
         pass
+
+    def clear(self) -> None:
+        super().clear()
+        self.within_first_window = True
