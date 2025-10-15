@@ -43,7 +43,14 @@ class CanarySlidingWindowRetranslator(SlidingWindowRetranslator):
         return self.model.tokenizer.ids_to_tokens(output[0].y_sequence)
 
     def _tokens_to_string(self, tokens: List[str]) -> str:
-        return self.model.tokenizer.tokens_to_text(tokens)
+        # avoid that the initial space, if it is there, get removed in the detokenization
+        check_for_init_space = self.text_history is not None and len(self.text_history) > 0
+        if check_for_init_space:
+            tokens = [' '] + tokens
+        text = self.model.tokenizer.tokens_to_text(tokens)
+        if check_for_init_space:
+            text = text[1:]
+        return text
 
     def _preprocess(self, waveform: np.float32) -> torch.Tensor:
         """

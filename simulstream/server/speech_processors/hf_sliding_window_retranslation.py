@@ -55,6 +55,9 @@ class HFSlidingWindowRetranslator(SlidingWindowRetranslator):
             generated_ids, skip_special_tokens=True)
 
     def _tokens_to_string(self, tokens: List[str]) -> str:
+        # avoid that the initial space, if it is there, get removed in the detokenization
+        if self.text_history is not None and len(self.text_history) > 0:
+            tokens = [''] + tokens
         return self.processor.tokenizer.convert_tokens_to_string(tokens)
 
     def _preprocess(self, waveform: np.float32) -> torch.Tensor:

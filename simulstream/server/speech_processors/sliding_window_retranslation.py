@@ -105,6 +105,7 @@ class SlidingWindowRetranslator(BaseSpeechProcessor):
             if self.within_first_window or self.override_on_failed_match:
                 deleted_tokens = self.text_history
                 deleted_string = self._tokens_to_string(self.text_history)
+                self.text_history = None
             else:
                 deleted_tokens = []
                 deleted_string = ""
