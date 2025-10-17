@@ -71,6 +71,13 @@ class SpeechProcessor(ABC):
         """
         self.config = config
 
+    @property
+    def speech_chunk_size(self) -> float:
+        """
+        Return the size of the speech chunks to be processed (in seconds).
+        """
+        return self.config.speech_chunk_size
+
     @classmethod
     @abstractmethod
     def load_model(cls, config: SimpleNamespace):

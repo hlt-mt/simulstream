@@ -1,5 +1,6 @@
 type: "simulstream.server.speech_processors.vad_canary_sliding_window_retranslation.VADCanarySlidingWindowRetranslator"
 model_name: "nvidia/canary-1b-v2"
+speech_chunk_size: 2.0  # seconds
 detokenizer_type: "canary"
 window_len: 12
 matching_threshold: 0.1

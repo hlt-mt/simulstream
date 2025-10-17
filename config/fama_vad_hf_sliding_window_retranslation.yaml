@@ -1,5 +1,6 @@
 type: "simulstream.server.speech_processors.vad_sliding_window_retranslation.VADHFSlidingWindowRetranslator"
 hf_model_name: "FBK-MT/fama-small"
+speech_chunk_size: 2.0  # seconds
 detokenizer_type: "hf"
 window_len: 12
 supported_langs:

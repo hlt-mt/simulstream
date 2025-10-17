@@ -159,18 +159,20 @@ def load_wav_file_list(list_file_path: str) -> List[str]:
     """
     basedir = os.path.dirname(list_file_path)
     with open(list_file_path, 'r') as f:
-        return [basedir + '/' + line.strip() for line in f if line.strip()]
+        wav_files = [basedir + '/' + line.strip() for line in f if line.strip()]
+    if not wav_files:
+        LOGGER.error("No valid WAV files found in the list.")
+        exit(1)
+    else:
+        assert all(os.path.isfile(f) for f in wav_files), "Invalid wav file in the list."
+    return wav_files
 
 
 async def main(args: argparse.Namespace):
     """Main entrypoint: validates WAV files and starts streaming."""
     wav_files = load_wav_file_list(args.wav_list_file)
-    if not wav_files:
-        LOGGER.error("No valid WAV files found in the list.")
-    else:
-        assert all(os.path.isfile(f) for f in wav_files), "Invalid wav file in the list."
-        await stream_wav_files(
-            args.uri, wav_files, args.chunk_duration_ms, args.tgt_lang, args.src_lang)
+    await stream_wav_files(
+        args.uri, wav_files, args.chunk_duration_ms, args.tgt_lang, args.src_lang)
 
 
 def cli_main():

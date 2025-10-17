@@ -1,6 +1,7 @@
 type: "simulstream.server.speech_processors.seamless_sliding_window_retranslation.SeamlessSlidingWindowRetranslator"
 hf_model_name: "facebook/seamless-m4t-v2-large"
 seamless_version: 2
+speech_chunk_size: 2.0  # seconds
 detokenizer_type: "hf"
 window_len: 12
 lang_tag_template: "__{}__"
