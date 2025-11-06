@@ -45,6 +45,9 @@ class MessageProcessor:
     def process_speech(self, speech_data: bytes) -> Optional[IncrementalOutput]:
         """
         Process an audio chunk and return incremental transcription/translation.
+        Namely, it receives and buffers raw audio chunks (``bytes``) and processes audio
+        audio incrementally with the configured
+        :class:`~simulstream.server.speech_processors.SpeechProcessor`.
 
         Args:
             speech_data (bytes): Raw PCM audio bytes (16-bit little endian).
