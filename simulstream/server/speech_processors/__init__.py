@@ -15,7 +15,7 @@
 import importlib
 from abc import ABC, abstractmethod
 from types import SimpleNamespace
-from typing import List
+from typing import List, Any
 
 import numpy as np
 
@@ -161,9 +161,13 @@ def speech_processor_class_load(speech_processor_class_string: str) -> type[Spee
     Raises:
         AssertionError: If the specified class is not a subclass of SpeechProcessor.
     """
-    module_path, class_name = speech_processor_class_string.rsplit('.', 1)
-    module = importlib.import_module(module_path)
-    cls = getattr(module, class_name)
+    cls = class_load(speech_processor_class_string)
     assert issubclass(cls, SpeechProcessor), \
         f"{speech_processor_class_string} must be a subclass of SpeechProcessor"
     return cls
+
+
+def class_load(class_string: str) -> type[Any]:
+    module_path, class_name = class_string.rsplit('.', 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)

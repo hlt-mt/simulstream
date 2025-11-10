@@ -30,6 +30,7 @@ lint:
 test:
   stage: test
   script:
+    - export IS_TESTING=true
     - python -m unittest discover -s uts -p "*.py"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

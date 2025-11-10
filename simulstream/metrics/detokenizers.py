@@ -42,9 +42,28 @@ def build_canary_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], s
     return detokenize
 
 
+def build_simuleval_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], str]:
+    """ SimulEval detokenizer from https://github.com/facebookresearch/SimulEval/blob/
+    536de8253b82d805c9845440169a5010ff507357/simuleval/evaluator/instance.py#L233"""
+    if config.latency_unit == "word":
+        def detokenize(input_tokens: List[str]) -> str:
+            return " ".join(input_tokens)
+    elif config.latency_unit == "char":
+        def detokenize(input_tokens: List[str]) -> str:
+            return "".join(input_tokens)
+    elif config.latency_unit == "spm":
+        def detokenize(input_tokens: List[str]) -> str:
+            return "".join(input_tokens).replace("▁", " ").strip()
+    else:
+        raise NotImplementedError
+
+    return detokenize
+
+
 _DETOKENIZER_BUILDER_MAP: Dict[str, Callable[[SimpleNamespace], Callable[[List[str]], str]]] = {
     "hf": build_hf_detokenizer,
     "canary": build_canary_detokenizer,
+    "simuleval": build_simuleval_detokenizer
 }
 
 

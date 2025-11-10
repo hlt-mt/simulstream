@@ -1,0 +1,5 @@
+type: "simulstream.server.speech_processors.simuleval_wrapper.SimulEvalWrapper"
+simuleval_agent: "your_simuleval_agent_class"
+latency_unit: word
+speech_chunk_size: 1.0  # seconds
+detokenizer_type: "simuleval"
