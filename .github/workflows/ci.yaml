@@ -38,7 +38,8 @@ jobs:
       - name: Unit Tests
         run: |
           source venv/bin/activate
-          python -m unittest discover -s uts
+          export IS_TESTING=true
+          python -m unittest discover -s uts -p "*.py"
 
       - name: Build Sphinx HTML documentation
         run: |
