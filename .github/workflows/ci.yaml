@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Display Python version
+        run: python --version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install virtualenv
+          virtualenv venv
+          source venv/bin/activate
+          pip install .[dev]
+
+      - name: Lint
+        run: |
+          source venv/bin/activate
+          flake8
+
+      - name: Unit Tests
+        run: |
+          source venv/bin/activate
+          python -m unittest discover -s uts
+
+      - name: Build Sphinx HTML documentation
+        run: |
+          source venv/bin/activate
+          sphinx-build -b html docs/source docs/build
+
+      - name: Upload built documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-build
+          path: docs/build
+          retention-days: 7
