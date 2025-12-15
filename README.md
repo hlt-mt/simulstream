@@ -219,11 +219,10 @@ If you use this library, please cite:
 
 
 ```
-@inproceedings{gaido-et-al-2025-simulstream,
-    title={{simulstream: Library for Speech Streaming Translation Evaluation and Demonstration}},
+@article{gaido-et-al-2025-simulstream,
+    title={{simulstream: Open-Source Toolkit for Evaluation and Demonstration of Streaming Speech-to-Text Translation Systems}},
     author={Gaido, Marco and Papi, Sara and Cettolo, Mauro and Negri, Matteo and Bentivogli, Luisa},
-    booktitle = "",
-    address = "",
+    journal = "arXiv",
     year={2025}
 }
 ```
