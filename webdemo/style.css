@@ -89,6 +89,7 @@ body {
   flex: 1;
   margin: 6px 32px 6px;
   background-color: black;
+  min-height: 0;
 }
 
 .inputs {
@@ -236,6 +237,7 @@ button:hover {
   line-height: 1.4;
   transition: all 0.3s ease;
   white-space: pre-wrap;
+  min-height: 0;
 }
 
 .footer {

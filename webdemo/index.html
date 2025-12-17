@@ -68,7 +68,9 @@
     <span>Powered by <strong id="credits_model_name"></strong></span>
   </div>
 
-  <script>
+  <script type="module">
+    import {SimulStreamClient} from "./simulstream_client.js";
+
     async function loadConfig(url) {
       try {
         const response = await fetch(url);
@@ -89,14 +91,10 @@
 
     // Example usage
     const configLoader = loadConfig('/config.yaml');
+    let simulstreamClient = null;
 
-    let stream;
-    let socket;
-    let processorNode;
-    let audioContext;
     let analyser;
     let dataArray;
-    let source;
     let animationId;
 
     const canvas = document.getElementById('visualizer');
@@ -178,15 +176,6 @@
       ctx.stroke();
     }
 
-    function float32ToInt16(float32) {
-      const int16 = new Int16Array(float32.length);
-      for (let i = 0; i < float32.length; i++) {
-        let s = float32[i] * 32768;
-        int16[i] = Math.max(-32768, Math.min(32767, s));
-      }
-      return int16;
-    }
-
     startBtn.addEventListener('click', async () => {
       if (!navigator.mediaDevices) {
         alert("Your browser doesn't support audio recording.");
@@ -194,67 +183,49 @@
       }
 
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const inputSampleRate = audioContext.sampleRate;
-        // Visualizer Setup
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-        source = audioContext.createMediaStreamSource(stream);
-        source.connect(analyser);
-        drawVisualizer();
+        if (simulstreamClient && simulstreamClient.socketOpen()) {
+          simulstreamClient.closeSocket();
+          const transcriptText = document.getElementById('transcript-text');
+          transcriptText.textContent = '';
+        }
 
         // WebSocket Setup
         const websocker_url = await configLoader.then(function (config) {
           const secure = config.secure ? 's' : '';
           return 'ws' + secure + '://' + config.hostname + ':' + config.port;
         });
-        if (socket) {
-          socket.close();
-          const transcriptText = document.getElementById('transcript-text');
-          transcriptText.textContent = '';
-        }
-        socket = new WebSocket(websocker_url);
+        simulstreamClient = new SimulStreamClient(websocker_url)
 
-        socket.onopen = () => {
+        simulstreamClient.onopen = () => {
           updateStatus("Connected & Recording...", 'green');
-          let tgt_lang = document.getElementById("tgt_language").value;
-          let src_lang = document.getElementById("src_language").value;
-          socket.send(JSON.stringify({
-            target_lang: tgt_lang, source_lang: src_lang, sample_rate: inputSampleRate
-          }));
         };
-
-        socket.onerror = () => {
+        simulstreamClient.onerror = () => {
           updateStatus("WebSocket error.", 'red');
         };
-
-        socket.onmessage = (event) => {
-          const transcription = JSON.parse(event.data);
+        simulstreamClient.onservermessage = (serverMessage) => {
           const transcriptText = document.getElementById('transcript-text');
-          const charToDelete = transcription.deleted.length;
+          const charToDelete = serverMessage.deleted.length;
           const newTranscriptLen = transcriptText.textContent.length - charToDelete;
           transcriptText.textContent = transcriptText.textContent.substring(0, newTranscriptLen);
-          transcriptText.textContent += transcription.new;
+          transcriptText.textContent += serverMessage.new;
 
           // Auto-scroll to bottom
-          const container = document.getElementById('transcript-box');
-          container.scrollTop = container.scrollHeight;
+          transcriptText.scrollTop = transcriptText.scrollHeight;
         };
 
-        await audioContext.audioWorklet.addModule('processor.js');
+        let tgt_lang = document.getElementById("tgt_language").value;
+        let src_lang = document.getElementById("src_language").value;
 
-        processorNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-        source.connect(processorNode).connect(audioContext.destination);
+        await simulstreamClient.start(tgt_lang, src_lang)
 
-        processorNode.port.onmessage = (event) => {
-          if (event.data.length > 0 && socket.readyState === WebSocket.OPEN) {
-            const int16 = float32ToInt16(event.data);
-            socket.send(int16.buffer);
-          }
-        };
+        // Visualizer Setup
+        analyser = simulstreamClient.audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        let source = simulstreamClient.audioContext.createMediaStreamSource(simulstreamClient.stream);
+        source.connect(analyser);
+        drawVisualizer();
 
         startBtn.disabled = true;
         stopBtn.disabled = false;
@@ -265,9 +236,7 @@
     });
 
     stopBtn.addEventListener('click', () => {
-      if (processorNode) processorNode.disconnect();
-      if (audioContext) audioContext.close();
-      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (simulstreamClient) simulstreamClient.stop();
       updateStatus("Stopped.", 'red');
       cancelAnimationFrame(animationId);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -286,4 +255,3 @@
   </script>
 </body>
 </html>
-
