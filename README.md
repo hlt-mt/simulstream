@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/source/_static/logo.png" width="200" alt="simulstream logo">
+  <img src="https://github.com/hlt-mt/simulstream/blob/main/docs/source/_static/logo.png?raw=true" width="200" alt="simulstream logo">
 </div>
 
 
