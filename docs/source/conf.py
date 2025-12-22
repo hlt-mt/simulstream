@@ -4,6 +4,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 import os
 import sys
+from simulstream import __version__
 
 sys.path.insert(0, os.path.abspath('../../'))
 
@@ -13,7 +14,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 project = 'simulstream'
 copyright = '2025, FBK'
 author = 'Marco Gaido, FBK MT Unit'
-release = '0.1.0'
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
