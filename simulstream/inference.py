@@ -50,7 +50,7 @@ def process_audio(
         data (np.ndarray): Audio samples as int16 array.
     """
     samples_per_chunk = int(
-        sample_rate * message_processor.speech_processor.speech_chunk_size / 1000.0)
+        sample_rate * message_processor.speech_processor.speech_chunk_size)
     i = 0
     for i in range(0, len(data), samples_per_chunk):
         output = message_processor.process_speech(data[i:i + samples_per_chunk].tobytes())
