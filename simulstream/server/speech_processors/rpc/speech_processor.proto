@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package simulstream.server.speech_processors.rpc;
+
+import "google/protobuf/empty.proto";
+
+message IncrementalOutput {
+  repeated string new_tokens = 1;
+  string new_string = 2;
+  repeated string deleted_tokens = 3;
+  string deleted_string = 4;
+}
+
+message AudioChunk {
+  string session_id = 1;
+  bytes pcm_f32 = 2;
+}
+
+message SetLanguageRequest {
+  string session_id = 1;
+  string language = 2;
+}
+
+message SpeechChunkSizeData {
+  double speech_chunk_size = 1;
+}
+
+message Tokens {
+  string session_id = 1;
+  repeated string tokens = 2;
+}
+
+message StringFromTokens {
+  string tokens_as_string = 1;
+}
+
+message ClearRequest {
+    string session_id = 1;
+}
+message EndOfStreamRequest {
+    string session_id = 1;
+}
+message SpeechChunkSizeRequest {
+    string session_id = 1;
+}
+
+service SpeechProcessorService {
+  rpc SpeechChunkSize(SpeechChunkSizeRequest)
+      returns (SpeechChunkSizeData);
+
+  rpc ProcessChunk(AudioChunk)
+      returns (IncrementalOutput);
+
+  rpc SetSourceLanguage(SetLanguageRequest)
+      returns (google.protobuf.Empty);
+
+  rpc SetTargetLanguage(SetLanguageRequest)
+      returns (google.protobuf.Empty);
+
+  rpc Clear(ClearRequest)
+      returns (google.protobuf.Empty);
+
+  rpc EndOfStream(EndOfStreamRequest)
+      returns (IncrementalOutput);
+
+  rpc Tokens2String(Tokens)
+      returns (StringFromTokens);
+}
