@@ -19,7 +19,8 @@ import grpc
 import numpy as np
 
 from simulstream.server.speech_processors import SpeechProcessor, IncrementalOutput
-from simulstream.server.speech_processors.rpc.speech_processor_pb2_grpc import SpeechProcessorServiceStub
+from simulstream.server.speech_processors.rpc.speech_processor_pb2_grpc import \
+    SpeechProcessorServiceStub
 from simulstream.server.speech_processors.rpc import speech_processor_pb2
 
 
