@@ -21,8 +21,8 @@ Server
    simulstream.server.speech_processors.sliding_window_retranslation
    simulstream.server.speech_processors.vad_wrapper
    simulstream.server.speech_processors.base_streamatt
-   simulstream.server.speech_processors.rcp
-   simulstream.server.speech_processors.rcp.proxy_speech_processor
+   simulstream.server.speech_processors.rpc
+   simulstream.server.speech_processors.rpc.proxy_speech_processor
 
 
 Client
