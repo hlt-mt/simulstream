@@ -12,4 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-__version__ = '0.2.0'
+from pathlib import Path
+
+
+with Path(__file__).with_name('VERSION.txt').open('r') as f:
+    __version__ = f.read().strip()
