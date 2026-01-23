@@ -49,6 +49,8 @@ def process_audio(
         sample_rate (int): Audio sample rate (Hz).
         data (np.ndarray): Audio samples as int16 array.
     """
+    # speech_chunk_size is expressed in seconds, so the number of samples corresponding to
+    # one speech chunk is the following
     samples_per_chunk = int(
         sample_rate * message_processor.speech_processor.speech_chunk_size)
     i = 0
