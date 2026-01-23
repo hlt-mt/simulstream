@@ -49,17 +49,18 @@ Speech Processor in Docker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you want to run your speech processor in a Docker container (e.g., to ease reuse and distribution),
-you can do so by creating a ``gRPC`` server exposing your speech processor and configuring as processor
-in the simulstream server ``simulstream.server.speech_processors.rpc.proxy_speech_processor.ProxyGrpcSpeechProcessor``
-with the endpoint of your ``gRPC`` server in the configuration.
-``simulstream.server.speech_processors.rpc.proxy_speech_processor.ProxyGrpcSpeechProcessor`` is a ``gRPC``
-client that connects to your ``gRPC`` server.
+you can do so by creating a HTTP server exposing your speech processor and configuring as processor
+in the simulstream server
+``simulstream.server.speech_processors.remote.http_proxy_speech_processor.HttpProxySpeechProcessor``
+with the endpoint of your HTTP server in the configuration.
+``simulstream.server.speech_processors.remote.http_proxy_speech_processor.HttpProxySpeechProcessor``
+is a HTTP client that connects to your HTTP server.
 
 You can find an example on how to run your speech processor with a Docker container and a working example
 at the `Docker example README`_.
 
 
-.. _Docker example README: https://github.com/hlt-mt/simulstream/tree/main/examples/rpc_docker/README.md
+.. _Docker example README: https://github.com/hlt-mt/simulstream/tree/main/examples/http_docker/README.md
 
 
 HTTP Server Web Client

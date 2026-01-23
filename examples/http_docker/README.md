@@ -3,25 +3,25 @@
 This folder contains a Dockerfile that is a working example of how to build a Docker
 containing a speech processor (e.g., how it is required for IWSLT submissions).
 
-The Docker can be build by running the following command **from the directory
+The Docker can be built by running the following command **from the directory
 containing this REAMDE file and the Dockerfile**:
 
 ```shell
-docker build --build-context simulstream_base=../.. -t grpc_speech_processor .
+docker build --build-context simulstream_base=../.. -t http_speech_processor .
 ```
 
-You can replace `grpc_speech_processor` with the name you want to give to your
+You can replace `http_speech_processor` with the name you want to give to your
 docker image. Then, you can run the docker image with:
 
 ```shell
-docker run --rm --gpus=all -p 50051:50051 grpc_speech_processor
+docker run --rm --gpus=all -p 8080:8080 http_speech_processor
 ```
 
-And then, you can use `simulstream` setting the proxy gRPC processor to access your
+And then, you can use `simulstream` setting the proxy HTTP processor to access your
 dockerized speech processor, e.g. by running:
 
 ```shell
-simulstream_inference --speech-processor-config config/grpc_proxy_processor.yaml \
+simulstream_inference --speech-processor-config config/http_proxy_processor.yaml \
    --wav-list-file $YOUR_TXT_FILE \
    --tgt-lang $TGT_LANG --src-lang $SRC_LANG \
    --metrics-log-file $YOUR_OUTPUT_JSONL_FILE

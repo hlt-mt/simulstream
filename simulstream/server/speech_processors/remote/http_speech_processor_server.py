@@ -13,23 +13,22 @@
 # limitations under the License
 
 import argparse
+import base64
+import json
 import time
-from concurrent import futures
 import logging
+from functools import partial
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from queue import Queue
 import threading
 from types import SimpleNamespace
+from typing import Dict, Any, Optional
 
-import grpc
 import numpy as np
 
 import simulstream
 from simulstream.config import yaml_config
 from simulstream.server.speech_processors import build_speech_processor, SpeechProcessor
-from simulstream.server.speech_processors.rpc import speech_processor_pb2_grpc as sp_pb2_grpc
-from simulstream.server.speech_processors.rpc import speech_processor_pb2 as sp_pb2
-from simulstream.server.speech_processors.rpc.speech_processor_pb2 \
-    import google_dot_protobuf_dot_empty__pb2 as empty_pb
 
 
 logging.basicConfig(
@@ -37,7 +36,8 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S',
     level=logging.INFO,
 )
-LOGGER = logging.getLogger('simulstream.server.speech_processors.rpc.speech_processor_server')
+LOGGER = logging.getLogger(
+    'simulstream.server.speech_processors.http.http_speech_processor_server')
 
 
 class SpeechProcessorSessionManager:
@@ -69,6 +69,9 @@ class SpeechProcessorSessionManager:
         with self._lock:
             if session_id not in self._sessions:
                 self._sessions[session_id] = self.available.get_nowait()
+                LOGGER.info(
+                    f"Speech processor allocated to {session_id}, speech processors available: "
+                    f"{self.available.qsize()}")
             self._last_access[session_id] = time.time()
             return self._sessions[session_id]
 
@@ -82,6 +85,9 @@ class SpeechProcessorSessionManager:
                 speech_processor = self._sessions.pop(session_id)
                 speech_processor.clear()
                 self.available.put_nowait(speech_processor)
+                LOGGER.info(
+                    f"Session {session_id} closed, speech processors available: "
+                    f"{self.available.qsize()}")
             if session_id in self._last_access:
                 self._last_access.pop(session_id)
 
@@ -107,60 +113,87 @@ class SpeechProcessorSessionManager:
         self._cleanup_thread.join()
 
 
-class GrpcSpeechProcessorWrapper(sp_pb2_grpc.SpeechProcessorServiceServicer):
-    def __init__(self, speech_processor_manager: SpeechProcessorSessionManager):
+class HttpSpeechProcessorHandler(BaseHTTPRequestHandler):
+    def __init__(
+            self, *args, speech_processor_manager: SpeechProcessorSessionManager = None, **kwargs):
         self.speech_processor_manager = speech_processor_manager
+        super().__init__(*args, **kwargs)
 
-    def SpeechChunkSize(self, request, context):
-        processor = self.speech_processor_manager.get(request.session_id)
-        return sp_pb2.SpeechChunkSizeData(speech_chunk_size=processor.speech_chunk_size)
+    def _read_json(self) -> dict:
+        length = int(self.headers.get("Content-Length", "0"))
+        data = self.rfile.read(length)
+        return json.loads(data)
 
-    def ProcessChunk(self, request, context):
-        processor = self.speech_processor_manager.get(request.session_id)
-        waveform = np.frombuffer(request.pcm_f32, dtype=np.float32)
-        output = processor.process_chunk(waveform)
-        return sp_pb2.IncrementalOutput(
-            new_tokens=output.new_tokens,
-            new_string=output.new_string,
-            deleted_tokens=output.deleted_tokens,
-            deleted_string=output.deleted_string,
-        )
+    def _send_json_response(self, code: int, message: Optional[Dict[str, Any]] = None):
+        self.send_response(code)
+        self.send_header("Content-type", "application/json; charset=utf-8")
+        self.end_headers()
+        if message is not None:
+            self.wfile.write(json.dumps(message).encode("utf-8"))
+        else:
+            self.wfile.write("".encode("utf-8"))
 
-    def SetSourceLanguage(self, request, context):
-        processor = self.speech_processor_manager.get(request.session_id)
-        processor.set_source_language(request.language)
-        return empty_pb.Empty()
+    def do_GET(self):
+        function_handler = getattr(self, "get_" + self.path.strip("/"))
+        function_handler(**self._read_json())
 
-    def SetTargetLanguage(self, request, context):
-        processor = self.speech_processor_manager.get(request.session_id)
-        processor.set_target_language(request.language)
-        return empty_pb.Empty()
+    def do_POST(self):
+        function_handler = getattr(self, "post_" + self.path.strip("/"))
+        function_handler(**self._read_json())
 
-    def EndOfStream(self, request, context):
-        processor = self.speech_processor_manager.get(request.session_id)
+    def do_PUT(self):
+        function_handler = getattr(self, "put_" + self.path.strip("/"))
+        function_handler(**self._read_json())
+
+    def get_speech_chunk_size(self, session_id):
+        processor = self.speech_processor_manager.get(session_id)
+        self._send_json_response(200, {"speech_chunk_size": processor.speech_chunk_size})
+
+    def post_process_chunk(self, session_id, waveform):
+        processor = self.speech_processor_manager.get(session_id)
+        output = processor.process_chunk(
+            np.frombuffer(base64.b64decode(waveform), dtype=np.float32))
+        self._send_json_response(200, {
+            "new_tokens": output.new_tokens,
+            "new_string": output.new_string,
+            "deleted_tokens": output.deleted_tokens,
+            "deleted_string": output.deleted_string,
+        })
+
+    def put_source_language(self, session_id, language):
+        processor = self.speech_processor_manager.get(session_id)
+        processor.set_source_language(language)
+        self._send_json_response(204)
+
+    def put_target_language(self, session_id, language):
+        processor = self.speech_processor_manager.get(session_id)
+        processor.set_target_language(language)
+        self._send_json_response(204)
+
+    def post_end_of_stream(self, session_id):
+        processor = self.speech_processor_manager.get(session_id)
         output = processor.end_of_stream()
-        return sp_pb2.IncrementalOutput(
-            new_tokens=output.new_tokens,
-            new_string=output.new_string,
-            deleted_tokens=output.deleted_tokens,
-            deleted_string=output.deleted_string,
-        )
+        self._send_json_response(200, {
+            "new_tokens": output.new_tokens,
+            "new_string": output.new_string,
+            "deleted_tokens": output.deleted_tokens,
+            "deleted_string": output.deleted_string,
+        })
 
-    def Clear(self, request, context):
-        if self.speech_processor_manager.is_active(request.session_id):
-            self.speech_processor_manager.close_session(request.session_id)
-        return empty_pb.Empty()
+    def post_clear(self, session_id):
+        if self.speech_processor_manager.is_active(session_id):
+            self.speech_processor_manager.close_session(session_id)
+        self._send_json_response(204)
 
-    def Tokens2String(self, request, context):
-        processor = self.speech_processor_manager.get(request.session_id)
-        output = processor.tokens_to_string(request.tokens)
-        return sp_pb2.StringFromTokens(tokens_as_string=output)
+    def get_tokens_to_string(self, session_id, tokens):
+        processor = self.speech_processor_manager.get(session_id)
+        output = processor.tokens_to_string(tokens)
+        self._send_json_response(200, {"tokens_as_string": output})
 
 
 def serve(args: argparse.Namespace):
     LOGGER.info(f"Loading server configuration from {args.server_config}")
     server_config = yaml_config(args.server_config)
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=server_config.pool_size))
     LOGGER.info(f"Loading speech processor from {args.speech_processor_config}")
     speech_processor_loading_time = time.time()
     speech_processor_session_manager = SpeechProcessorSessionManager(
@@ -169,21 +202,18 @@ def serve(args: argparse.Namespace):
     speech_processor_loading_time = time.time() - speech_processor_loading_time
     LOGGER.info(f"Loaded speech processor in {speech_processor_loading_time:.3f} seconds")
 
-    sp_pb2_grpc.add_SpeechProcessorServiceServicer_to_server(
-        GrpcSpeechProcessorWrapper(speech_processor_session_manager), server
-    )
-
-    server.add_insecure_port(f"{server_config.hostname}:{server_config.port}")
-    server.start()
-    LOGGER.info(f"gRPC server listening on {server_config.hostname}:{server_config.port}")
-    server.wait_for_termination()
+    custom_handler = partial(
+        HttpSpeechProcessorHandler, speech_processor_manager=speech_processor_session_manager)
+    httpd = ThreadingHTTPServer((server_config.hostname, server_config.port), custom_handler)
+    LOGGER.info(f"Serving on http://{server_config.hostname}:{server_config.port}")
+    httpd.serve_forever()
     speech_processor_session_manager.shutdown()
 
 
 def main():
-    LOGGER.info(f"gRPC speech processor server version: {simulstream.__version__}")
-    parser = argparse.ArgumentParser("grpc_speech_processor_server")
-    parser.add_argument("--server-config", type=str, default="config/grpc_server_example.yaml")
+    LOGGER.info(f"HTTP speech processor server version: {simulstream.__version__}")
+    parser = argparse.ArgumentParser("http_speech_processor_server")
+    parser.add_argument("--server-config", type=str, default="config/http_server_example.yaml")
     parser.add_argument("--speech-processor-config", type=str, required=True)
     args = parser.parse_args()
     serve(args)

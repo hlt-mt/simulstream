@@ -1,4 +1,0 @@
-type: "simulstream.server.speech_processors.rpc.proxy_speech_processor.ProxyGrpcSpeechProcessor"
-hostname: 52.151.194.129
-port: 50051
-

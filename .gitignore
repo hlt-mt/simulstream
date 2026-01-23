@@ -13,6 +13,3 @@ docs/source/generated
 docs/source/_autosummary
 
 **/.DS_Store
-
-# generated files
-simulstream/server/speech_processors/rpc/*pb2*

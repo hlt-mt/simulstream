@@ -65,23 +65,13 @@ eval = [
     "sacrebleu"
 ]
 
-rpc = [
-    "grpcio==1.76.0",
-    "protobuf~=6.33.4",
-]
-
 [tool.setuptools.dynamic]
 version = {attr = "simulstream.__version__"}
 
 
 # ---- Explicit project build information ---- #
 [build-system]
-requires = [
-    "setuptools",
-    "wheel",
-    "grpcio==1.76.0",
-    "grpcio-tools==1.76.0"
-]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -90,4 +80,3 @@ where = [""]
 [tool.setuptools.package-data]
 webdemo = ["webdemo"]
 configs = ["config"]
-simulstream = ["**/*.proto"]

@@ -1,0 +1,4 @@
+type: "simulstream.server.speech_processors.remote.http_proxy_speech_processor.HttpProxySpeechProcessor"
+hostname: localhost
+port: 8080
+
