@@ -1,6 +1,6 @@
 # Example of Docker Speech Processor
 
-This folder contains a Dockerfile that is a working example of how to build a Docker
+This folder contains a [Dockerfile](./Dockerfile) that is a working example of how to build a Docker
 containing a speech processor (e.g., required for IWSLT submissions).
 
 The Docker can be built by running the following command **from the directory
@@ -27,6 +27,6 @@ simulstream_inference --speech-processor-config config/http_proxy_processor.yaml
    --metrics-log-file $YOUR_OUTPUT_JSONL_FILE
 ```
 
-Please notice that this example Dockerfile runs a Canary sliding window speech processor.
+Please notice that this [Dockerfile example](./Dockerfile) runs a Canary sliding window speech processor.
 You may want to edit the Dockerfile to include your code, including your custom speech processor,
 your speech processor configuration file, and your requirements.

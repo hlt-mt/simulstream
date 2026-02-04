@@ -18,6 +18,7 @@ import json
 import time
 import logging
 from functools import partial
+from http import HTTPStatus
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from queue import Queue
 import threading
@@ -106,9 +107,6 @@ class SpeechProcessorSessionManager:
                 self.close_session(session_id)
 
     def shutdown(self) -> None:
-        """
-        Stop cleanup thread.
-        """
         self._cleanup_stop_event.set()
         self._cleanup_thread.join()
 
@@ -147,13 +145,13 @@ class HttpSpeechProcessorHandler(BaseHTTPRequestHandler):
 
     def get_speech_chunk_size(self, session_id):
         processor = self.speech_processor_manager.get(session_id)
-        self._send_json_response(200, {"speech_chunk_size": processor.speech_chunk_size})
+        self._send_json_response(HTTPStatus.OK, {"speech_chunk_size": processor.speech_chunk_size})
 
     def post_process_chunk(self, session_id, waveform):
         processor = self.speech_processor_manager.get(session_id)
         output = processor.process_chunk(
             np.frombuffer(base64.b64decode(waveform), dtype=np.float32))
-        self._send_json_response(200, {
+        self._send_json_response(HTTPStatus.OK, {
             "new_tokens": output.new_tokens,
             "new_string": output.new_string,
             "deleted_tokens": output.deleted_tokens,
@@ -163,17 +161,17 @@ class HttpSpeechProcessorHandler(BaseHTTPRequestHandler):
     def put_source_language(self, session_id, language):
         processor = self.speech_processor_manager.get(session_id)
         processor.set_source_language(language)
-        self._send_json_response(204)
+        self._send_json_response(HTTPStatus.NO_CONTENT)
 
     def put_target_language(self, session_id, language):
         processor = self.speech_processor_manager.get(session_id)
         processor.set_target_language(language)
-        self._send_json_response(204)
+        self._send_json_response(HTTPStatus.NO_CONTENT)
 
     def post_end_of_stream(self, session_id):
         processor = self.speech_processor_manager.get(session_id)
         output = processor.end_of_stream()
-        self._send_json_response(200, {
+        self._send_json_response(HTTPStatus.OK, {
             "new_tokens": output.new_tokens,
             "new_string": output.new_string,
             "deleted_tokens": output.deleted_tokens,
@@ -183,12 +181,12 @@ class HttpSpeechProcessorHandler(BaseHTTPRequestHandler):
     def post_clear(self, session_id):
         if self.speech_processor_manager.is_active(session_id):
             self.speech_processor_manager.close_session(session_id)
-        self._send_json_response(204)
+        self._send_json_response(HTTPStatus.NO_CONTENT)
 
     def get_tokens_to_string(self, session_id, tokens):
         processor = self.speech_processor_manager.get(session_id)
         output = processor.tokens_to_string(tokens)
-        self._send_json_response(200, {"tokens_as_string": output})
+        self._send_json_response(HTTPStatus.OK, {"tokens_as_string": output})
 
 
 def serve(args: argparse.Namespace):
