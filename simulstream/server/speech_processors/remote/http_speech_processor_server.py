@@ -46,7 +46,7 @@ class SpeechProcessorSessionManager:
         Args:
             speech_processor_config: Configuration of the speech processors to create.
             size: How many speech processors to use.
-            ttl: How long a session may stay idle before cleanup in seconds.
+            ttl: How long a session may stay idle before cleanup (in seconds).
         """
         self._sessions = {}
         self._last_access = {}

@@ -1,7 +1,7 @@
 # Example of Docker Speech Processor
 
 This folder contains a Dockerfile that is a working example of how to build a Docker
-containing a speech processor (e.g., how it is required for IWSLT submissions).
+containing a speech processor (e.g., required for IWSLT submissions).
 
 The Docker can be built by running the following command **from the directory
 containing this REAMDE file and the Dockerfile**:
@@ -18,7 +18,7 @@ docker run --rm --gpus=all -p 8080:8080 http_speech_processor
 ```
 
 And then, you can use `simulstream` setting the proxy HTTP processor to access your
-dockerized speech processor, e.g. by running:
+dockerized speech processor, e.g., by running:
 
 ```shell
 simulstream_inference --speech-processor-config config/http_proxy_processor.yaml \
