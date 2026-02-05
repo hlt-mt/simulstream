@@ -14,6 +14,7 @@
 
 import base64
 import json
+from http import HTTPStatus
 from typing import List, Any, Dict, Optional
 import uuid
 import urllib.request
@@ -54,7 +55,7 @@ class HttpProxySpeechProcessor(SpeechProcessor):
             method=method,
         )
         with urllib.request.urlopen(req) as resp:
-            if resp.status == 204:
+            if resp.status == HTTPStatus.NO_CONTENT:
                 return None
             return json.loads(resp.read())
 
