@@ -15,7 +15,7 @@
 import unittest
 from types import SimpleNamespace
 
-from simulstream.server.speech_processors.base_streamatt import PunctuationTextHistory  # noqa: E402
+from simulstream.server.speech_processors.base_streamatt import PunctuationTextHistory # noqa: E402
 
 
 class TestPunctuationTextHistory(unittest.TestCase):
@@ -58,6 +58,7 @@ class TestPunctuationTextHistory(unittest.TestCase):
         zh_history = ['回', '到', '纽', '约', '后', '，', '我']
         selected_history = self.punctuation_text_history.select_text_history(zh_history)
         self.assertEqual(selected_history, ['回', '到', '纽', '约', '后', '，', '我'])
+
 
 if __name__ == "__main__":
     unittest.main()
