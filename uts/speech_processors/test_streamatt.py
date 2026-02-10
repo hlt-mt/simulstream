@@ -15,7 +15,8 @@
 import unittest
 from types import SimpleNamespace
 
-from simulstream.server.speech_processors.base_streamatt import PunctuationTextHistory # noqa: E402
+from simulstream.server.speech_processors.base_streamatt import (
+    PunctuationTextHistory)  # noqa: E402
 
 
 class TestPunctuationTextHistory(unittest.TestCase):
