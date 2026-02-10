@@ -123,6 +123,7 @@ class BaseStreamAtt(BaseSpeechProcessor):
         else:
             self.text_history = new_output
         new_history = self.text_history_method.select_text_history(self.text_history)
+        assert len(self.text_history) > 0
         discarded_text = len(self.text_history) - len(new_history)
         self.text_history = new_history
 
@@ -299,13 +300,15 @@ class PunctuationTextHistory:
     The current implementation supports only SentencePiece.
     """
 
-    STRONG_PUNCTUATION = [".", "!", "?", ":", ";"]
+    STRONG_PUNCTUATION = [".", "!", "?", ":", ";", "。"]
 
     def __init__(self, config: SimpleNamespace):
         self.config = config
 
     def select_text_history(self, text_history):
         new_history = []
+        seen_punctuation = False
+
         for token in reversed(text_history):
             prefix_token = token
             contains_punctuation = False
@@ -314,7 +317,9 @@ class PunctuationTextHistory:
                     contains_punctuation = True
                     break
             if contains_punctuation:
-                break
+                if seen_punctuation:
+                    break
+            seen_punctuation = True
             new_history.append(token)
-        # Reverse the list
+
         return new_history[::-1]
