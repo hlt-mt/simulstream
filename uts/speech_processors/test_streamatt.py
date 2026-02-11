@@ -15,8 +15,7 @@
 import unittest
 from types import SimpleNamespace
 
-from simulstream.server.speech_processors.base_streamatt import \
-    PunctuationTextHistory
+from simulstream.server.speech_processors.base_streamatt import PunctuationTextHistory
 
 
 class TestPunctuationTextHistory(unittest.TestCase):
