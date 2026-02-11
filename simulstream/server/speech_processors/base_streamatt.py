@@ -154,7 +154,7 @@ class BaseStreamAtt(BaseSpeechProcessor):
         assert len(self.text_history) > 0, \
             "If text history is empty after selection, audio cannot be aligned. " \
             "If you see this message, it indicates a bug, so please open an issue at " \
-            "https://github.com/hlt-mt/simulstream/issues and include the steps that " \ 
+            "https://github.com/hlt-mt/simulstream/issues and include the steps that " \
             "led to this state."
 
         # Trim the cross-attention by excluding the discarded new generated tokens and the
