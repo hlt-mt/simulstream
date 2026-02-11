@@ -321,5 +321,5 @@ class PunctuationTextHistory:
                     break
             seen_punctuation = True
             new_history.append(token)
-
+        # Reverse the list
         return new_history[::-1]
