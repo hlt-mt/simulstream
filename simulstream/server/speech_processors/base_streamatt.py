@@ -123,7 +123,6 @@ class BaseStreamAtt(BaseSpeechProcessor):
         else:
             self.text_history = new_output
         new_history = self.text_history_method.select_text_history(self.text_history)
-        assert len(self.text_history) > 0
         discarded_text = len(self.text_history) - len(new_history)
         self.text_history = new_history
 
@@ -151,6 +150,12 @@ class BaseStreamAtt(BaseSpeechProcessor):
             # Check audio history not exceeding maximum allowed length
             self._cut_audio_exceeding_maxlen()
             return
+
+        assert len(self.text_history) > 0, \
+            "If text history is empty after selection, audio cannot be aligned. " \
+            "If you see this message, it indicates a bug, so please open an issue at " \
+            "https://github.com/hlt-mt/simulstream/issues and include the steps that " \ 
+            "led to this state."
 
         # Trim the cross-attention by excluding the discarded new generated tokens and the
         # discarded textual history. Output shape: (text_history_len, n_audio_features)
