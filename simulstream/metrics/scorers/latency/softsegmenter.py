@@ -268,7 +268,6 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
         ...         # Compute a custom latency score
         ...         return LatencyScores(...)
     """
-
     def __init__(self, args):
         super().__init__(args)
         self.latency_unit = args.latency_unit

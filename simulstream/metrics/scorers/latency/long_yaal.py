@@ -21,11 +21,11 @@ from simulstream.metrics.readers import text_items
 from simulstream.metrics.scorers.latency import register_latency_scorer, LatencyScores
 from simulstream.metrics.scorers.latency.softsegmenter import (
     SoftSegmenterBasedLatencyScorer,
-    ResegmentedLatencyScoringSample,
+    ResegmentedLatencyScoringSample
 )
 
 
-LOGGER = logging.getLogger("simulstream.metrics.scorers.latency.long_yaal")
+LOGGER = logging.getLogger('simulstream.metrics.scorers.latency.long_yaal')
 
 
 @register_latency_scorer("long_yaal")
@@ -39,8 +39,8 @@ class LongYAAL(SoftSegmenterBasedLatencyScorer):
     before computing latency, making it more robust for long-form speech translation evaluation.
 
     The key difference from StreamLAAL is the use of SoftSegmenter's more sophisticated
-    alignment algorithm that handles long-form audio better. Additionally, LongYAAL considers
-    all output tokens up until the end of the recording. StreamLAAL ignores any output tokens
+    alignment algorithm that handles long-form audio better. Additionally, LongYAAL is considers
+    all output tokens up until the end of the recording. StreamLAAL ignores any output tokens 
     emitted after the end of the reference segments.
     """
 
@@ -159,7 +159,6 @@ class LongYAAL(SoftSegmenterBasedLatencyScorer):
                         sentence_level_ideal_scores.append(ideal_score)
                     else:
                         skipped_sentences += 1
-
                     if ca_score is not None:
                         sentence_level_ca_scores.append(ca_score)
                 else:

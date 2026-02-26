@@ -25,25 +25,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install virtualenv
-          virtualenv venv
-          source venv/bin/activate
           pip install .[dev,eval]
 
       - name: Lint
         run: |
-          source venv/bin/activate
           flake8
 
       - name: Unit Tests
         run: |
-          source venv/bin/activate
           export IS_TESTING=true
           python -m unittest discover -s uts -p "*.py"
 
       - name: Build Sphinx HTML documentation
         run: |
-          source venv/bin/activate
           sphinx-build -b html docs/source docs/build
           zip -r docs.zip docs/build
 
