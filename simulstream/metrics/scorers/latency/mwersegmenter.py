@@ -18,26 +18,13 @@ from typing import List
 
 from mweralign import mweralign
 
-from simulstream.metrics.readers import ReferenceSentenceDefinition, OutputWithDelays, text_items
-from simulstream.metrics.scorers.latency import LatencyScorer, LatencyScoringSample, LatencyScores
+from simulstream.metrics.readers import OutputWithDelays, text_items
+from simulstream.metrics.scorers.latency import LatencyScoringSample, LatencyScores
+from simulstream.metrics.scorers.latency import ResegmentedLatencyScoringSample
+from simulstream.metrics.scorers.latency.segmenter_based_scorer import SegmenterBasedScorer
 
 
-@dataclass
-class ResegmentedLatencyScoringSample:
-    """
-    A sample containing realigned hypotheses and references.
-
-    Attributes:
-        audio_name (str): The identifier of the audio file.
-        hypothesis (List[str]): Hypothesis lines after realignment.
-        reference (List[str]): Reference lines aligned to the hypothesis.
-    """
-    audio_name: str
-    hypothesis: List[OutputWithDelays]
-    reference: List[ReferenceSentenceDefinition]
-
-
-class MWERSegmenterBasedLatencyScorer(LatencyScorer):
+class MWERSegmenterBasedLatencyScorer(SegmenterBasedScorer):
     """
     Abstract base class for scorers that require aligned system outputs and references through
     MWER Segmenter alignment.

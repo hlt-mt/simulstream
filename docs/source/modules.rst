@@ -58,3 +58,4 @@ Evaluation
    simulstream.metrics.scorers.quality.mwersegmenter
    simulstream.metrics.scorers.latency
    simulstream.metrics.scorers.latency.mwersegmenter
+   simulstream.metrics.scorers.latency.softsegmenter

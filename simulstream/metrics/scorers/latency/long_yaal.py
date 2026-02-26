@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-import argparse
 import logging
 import statistics
 from typing import List, Optional
@@ -49,8 +48,7 @@ class LongYAAL(SoftSegmenterBasedLatencyScorer):
         delays: List[float],
         source_length: float,
         target_length: int,
-        recording_end: float = float("inf"),
-        is_longform: bool = True,
+        relative_recording_duration: float = float("inf"),
     ) -> Optional[float]:
         """
         Compute Yet Another Average Lagging (YAAL) on one sentence.
@@ -59,41 +57,26 @@ class LongYAAL(SoftSegmenterBasedLatencyScorer):
             delays (List[float]): Sequence of delays for each output token.
             source_length (float): Length of the source audio segment in milliseconds.
             target_length (int): Length of the target reference in tokens/characters.
-            recording_end (float): End time of the recording (for long-form audio).
-            is_longform (bool): Whether to treat as long-form audio (allows delays past
-            source_length).
+            relative_recording_duration (float): Duration of the recording relative to the start
+                of the current sentence.
 
         Returns:
             Optional[float]: The YAAL score for the sentence, or None if computation is
-            not possible.
+                not possible.
         """
-        if len(delays) == 0:
-            return None
-
-        # If the first delay is already past the end, we can't compute YAAL
-        if (delays[0] >= source_length and not is_longform) or (
-            delays[0] >= recording_end
-        ):
-            return None
+        assert source_length > 0, "Source length must be greater than zero"
 
         YAAL = 0.0
         gamma = max(len(delays), target_length) / source_length
-        tau = 0
 
-        for t_minus_1, d in enumerate(delays):
-            # Stop if we've exceeded the source length (for non-longform)
-            # or recording end (for longform)
-            if (d >= source_length and not is_longform) or (d >= recording_end):
-                break
-
-            YAAL += d - t_minus_1 / gamma
-            tau = t_minus_1 + 1
-
-        if tau == 0:
+        valid_delays = [d for d in delays if d < relative_recording_duration]
+        if len(valid_delays) == 0:
             return None
 
-        YAAL /= tau
-        return YAAL
+        for prev_time_step, current_delay in enumerate(valid_delays):
+            YAAL += current_delay - prev_time_step / gamma
+
+        return YAAL / len(valid_delays)
 
     def _do_score(
         self, samples: List[ResegmentedLatencyScoringSample]
@@ -105,54 +88,51 @@ class LongYAAL(SoftSegmenterBasedLatencyScorer):
         for sample in samples:
             # Compute the total recording length (end time of the last reference segment)
             if sample.reference:
-                recording_length = max(
+                recording_duration = max(
                     ref.start_time + ref.duration for ref in sample.reference
                 )
             else:
                 LOGGER.warning(
-                    f"Sample {sample.audio_name} has no reference segments; treating recording"
-                    " length as infinite"
+                    f"Sample {sample.audio_name} has no reference segments; treating recording "
+                    "length as infinite"
                 )
-                recording_length = float("inf")
+                recording_duration = float("inf")
 
             for sentence_output, sentence_reference in zip(
                 sample.hypothesis, sample.reference
             ):
                 # Note: delays in sentence_output are already offset relative to
-                # sentence_reference.start_time
-                # by the SoftSegmenter alignment (unlike MWERSegmenter which doesn't offset)
+                # sentence_reference.start_time by the SoftSegmenter alignment
+                # (unlike MWERSegmenter which doesn't offset)
                 ideal_delays = sentence_output.ideal_delays
                 ca_delays = sentence_output.computational_aware_delays
 
-                assert len(ideal_delays) == len(
-                    ca_delays
-                ), f"Mismatch in delay counts: {len(ideal_delays)} vs {len(ca_delays)}"
+                assert len(ideal_delays) == len(ca_delays), \
+                    f"Mismatch in delay counts: {len(ideal_delays)} vs {len(ca_delays)}"
 
                 target_length = len(
                     text_items(sentence_reference.content, self.latency_unit)
                 )
 
                 if len(ideal_delays) > 0:
-                    # Compute recording end time relative to sentence start
+                    # Compute recording end time relative to sentence start.
                     # This considers the entire recording, not just this segment.
                     # This allows LongYAAL to account for outputs emitted after the reference
                     # segment ends but before the recording ends (key difference from StreamLAAL)
-                    recording_end = recording_length - sentence_reference.start_time
+                    relative_recording_duration = recording_duration - sentence_reference.start_time
 
                     ideal_score = self._sentence_level_yaal(
                         ideal_delays,
                         sentence_reference.duration,
                         target_length,
-                        recording_end=recording_end,
-                        is_longform=True,
+                        relative_recording_duration=relative_recording_duration,
                     )
 
                     ca_score = self._sentence_level_yaal(
                         ca_delays,
                         sentence_reference.duration,
                         target_length,
-                        recording_end=recording_end,
-                        is_longform=True,
+                        relative_recording_duration=relative_recording_duration,
                     )
 
                     if ideal_score is not None:
@@ -167,7 +147,7 @@ class LongYAAL(SoftSegmenterBasedLatencyScorer):
         if skipped_sentences > 0:
             LOGGER.warning(
                 f"{skipped_sentences} sentences have been skipped in LongYAAL computation "
-                f"as they were empty or could not be scored"
+                "as they were empty or could not be scored."
             )
 
         if len(sentence_level_ideal_scores) == 0:
@@ -181,14 +161,4 @@ class LongYAAL(SoftSegmenterBasedLatencyScorer):
                 if len(sentence_level_ca_scores) > 0
                 else float("nan")
             ),
-        )
-
-    @classmethod
-    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--moses-lang",
-            type=str,
-            default=None,
-            help='Language code for Moses tokenizer (e.g., "en", "de"). '
-            "Use None for Chinese/Japanese or to skip tokenization.",
         )

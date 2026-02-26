@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
+import argparse
 import logging
 import unicodedata
 from abc import abstractmethod
@@ -19,14 +20,13 @@ from dataclasses import dataclass
 from multiprocessing import Pool
 from typing import Callable, List, Optional, Tuple
 
-try:
-    from mosestokenizer import MosesTokenizer  # type: ignore
-except ImportError:
-    MosesTokenizer = None
+from mosestokenizer import MosesTokenizer
 
 from simulstream.metrics.readers import ReferenceSentenceDefinition, OutputWithDelays, text_items
-from simulstream.metrics.scorers.latency import LatencyScorer, LatencyScoringSample, LatencyScores
-from simulstream.metrics.scorers.latency.mwersegmenter import ResegmentedLatencyScoringSample
+from simulstream.metrics.scorers.latency import LatencyScoringSample, LatencyScores
+from simulstream.metrics.scorers.latency import ResegmentedLatencyScoringSample
+from simulstream.metrics.scorers.latency.segmenter_based_scorer import SegmenterBasedScorer
+
 
 LOGGER = logging.getLogger("simulstream.metrics.scorers.latency.softsegmenter")
 
@@ -37,7 +37,7 @@ JAPAN_PUNCT = set(["。", "！", "？", "，", "；", "：", "ー", "（", "）"
 ALL_PUNCT = PUNCT.union(CHINESE_PUNCT).union(JAPAN_PUNCT)
 
 
-class Match:
+class AlignmentOperation:
     """Enum for alignment operations."""
     MATCH = 0
     DELETE = 1
@@ -80,7 +80,10 @@ def unicode_normalize(text: str) -> str:
 
 def compute_similarity_score(ref_word: Word, hyp_word: Word, char_level: bool) -> float:
     """
-    Compute the similarity metric between two words.
+    Compute the similarity metric between two words based on Jaccard similarity of
+    character sets (or exact match for character-level). Additionally, if one word
+    (or character) is punctuation and the other is not, return a negative score to
+    discourage alignment of punctuation with non-punctuation.
 
     Args:
         ref_word (Word): Reference word.
@@ -115,6 +118,15 @@ def _align_sequences(seq1: List[Word], seq2: List[Word], char_level: bool) -> tu
     """
     Align two sequences maximizing the similarity metric.
 
+    This function implements a dynamic programming algorithm similar to
+    Needleman-Wunsch, but with a custom similarity score and no gap penalties.
+    It is also similar to Dynamic Time Warping (DTW) but there is no penalty
+    for leading/trailing gaps. The algorithm allows for insertions and
+    deletions without penalty, but matches are scored based on the Jaccard
+    similarity of character sets (or exact match for character-level).
+    The alignment is computed to maximize the total similarity score across
+    the aligned sequences.
+
     Args:
         seq1 (List[Word]): First sequence (typically reference).
         seq2 (List[Word]): Second sequence (typically hypothesis).
@@ -127,17 +139,17 @@ def _align_sequences(seq1: List[Word], seq2: List[Word], char_level: bool) -> tu
     n = len(seq1) + 1
     m = len(seq2) + 1
     dp = [[0.0] * m for _ in range(n)]
-    dp_back = [[Match.NONE] * m for _ in range(n)]
+    dp_back = [[AlignmentOperation.NONE] * m for _ in range(n)]
 
     # Fill the first row and column of the matrix
     for i in range(n):
         dp[i][0] = 0.0
-        dp_back[i][0] = Match.DELETE
+        dp_back[i][0] = AlignmentOperation.DELETE
     for j in range(m):
         dp[0][j] = 0.0
-        dp_back[0][j] = Match.INSERT
+        dp_back[0][j] = AlignmentOperation.INSERT
     dp[0][0] = 0.0
-    dp_back[0][0] = Match.MATCH
+    dp_back[0][0] = AlignmentOperation.MATCH
 
     # Fill the alignment matrix
     for i in range(1, n):
@@ -148,27 +160,27 @@ def _align_sequences(seq1: List[Word], seq2: List[Word], char_level: bool) -> tu
             insert = dp[i][j - 1]
             dp[i][j] = max(match, delete, insert)
             if dp[i][j] == match:
-                dp_back[i][j] = Match.MATCH
+                dp_back[i][j] = AlignmentOperation.MATCH
             elif dp[i][j] == delete:
-                dp_back[i][j] = Match.DELETE
+                dp_back[i][j] = AlignmentOperation.DELETE
             else:
-                dp_back[i][j] = Match.INSERT
+                dp_back[i][j] = AlignmentOperation.INSERT
 
     # Backtrack to find the alignment
     aligned_seq1 = []
     aligned_seq2 = []
     i, j = n - 1, m - 1
     while i > 0 or j > 0:
-        if dp_back[i][j] == Match.MATCH:
+        if dp_back[i][j] == AlignmentOperation.MATCH:
             aligned_seq1.append(seq1[i - 1])
             aligned_seq2.append(seq2[j - 1])
             i -= 1
             j -= 1
-        elif dp_back[i][j] == Match.DELETE:
+        elif dp_back[i][j] == AlignmentOperation.DELETE:
             aligned_seq1.append(seq1[i - 1])
             aligned_seq2.append(None)
             i -= 1
-        elif dp_back[i][j] == Match.INSERT:
+        elif dp_back[i][j] == AlignmentOperation.INSERT:
             aligned_seq1.append(None)
             aligned_seq2.append(seq2[j - 1])
             j -= 1
@@ -247,7 +259,7 @@ def _process_sample_alignment(
     return i, processed_hyp
 
 
-class SoftSegmenterBasedLatencyScorer(LatencyScorer):
+class SoftSegmenterBasedLatencyScorer(SegmenterBasedScorer):
     """
     Abstract base class for scorers that require aligned system outputs and references through
     SoftSegmenter alignment.
@@ -260,7 +272,7 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
     :class:`ResegmentedLatencyScoringSample` instances where hypotheses and references are aligned.
 
     Args:
-        args: Parsed arguments containing latency_unit and optionally moses_lang.
+        args: Parsed arguments containing latency_unit and optionally moses_lang and num_workers.
 
     Example:
         >>> class CustomLatencyScorer(SoftSegmenterBasedLatencyScorer):
@@ -272,6 +284,7 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
         super().__init__(args)
         self.latency_unit = args.latency_unit
         self.moses_lang = getattr(args, 'moses_lang', None)
+        self.num_workers = getattr(args, 'num_workers', None)
 
     def requires_reference(self) -> bool:
         return True
@@ -291,29 +304,6 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
             LatencyScores: The computed latency metrics.
         """
         ...
-
-    def _split_delays_by_segmented_text(
-            self, delays: List[float], segmented_text: List[str]) -> List[List[float]]:
-        """
-        Assign delay values to the corresponding segmented hypotheses.
-
-        Args:
-            delays (List[float]): Delay values (per token or per char).
-            segmented_text (List[str]): Segmented hypothesis strings.
-
-        Returns:
-            List[List[float]]: Delays split per segment.
-        """
-        segmented_delays = []
-        index = 0
-
-        for segment in segmented_text:
-            segment_len = len(text_items(segment, self.latency_unit))
-            segmented_delays.append(delays[index:index + segment_len])
-            index += segment_len
-        assert len(delays) == index, \
-            f"Index {index} should have reached end of delays ({len(delays)})"
-        return segmented_delays
 
     def _create_words_from_output(
             self,
@@ -339,8 +329,8 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
         assert lu == l_ca, f"Number of units ({lu}) and CA delays ({l_ca}) do not match"
 
         words = []
-        for unit, delay, elapsed in zip(units, output.ideal_delays,
-                                        output.computational_aware_delays):
+        for unit, delay, elapsed in zip(
+            units, output.ideal_delays, output.computational_aware_delays):
             words.append(Word(
                 text=unit,
                 delay=delay,
@@ -415,24 +405,14 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
         sample_metadata = []  # Store per-sample metadata for post-processing
 
         if self.moses_lang is None:
-            if not (self.moses_lang == "zh" or self.moses_lang == "ja"):
-                LOGGER.warning(
-                    "moses_lang not specified; defaulting to character-level tokenization. "
-                    "This is recommended for Chinese/Japanese, but for other languages it is "
-                    "recommended to specify a moses_lang for proper tokenization. Set "
-                    "--moses-lang to the appropriate language code (e.g., 'en', 'de') "
-                    "or to 'zh'/'ja' to skip tokenization.")
-
-            else:
-                raise ValueError(
-                    "moses_lang must be specified for non-Chinese/Japanese languages when "
-                    "using softsegmenter. Set --moses-lang to the appropriate language code "
-                    "(e.g., 'en', 'de') or to 'zh'/'ja' to skip tokenization.")
+            LOGGER.warning(
+                "moses_lang not specified; defaulting to character-level tokenization. "
+                "This is recommended for Chinese/Japanese, but for other languages it is "
+                "recommended to specify a moses_lang for proper tokenization. Set "
+                "--moses-lang to the appropriate language code (e.g., 'en', 'de') "
+                "or to 'zh'/'ja' to skip tokenization.")
+            tokenizer = lambda x: x  # Identity tokenizer for character-level or when moses_lang is None
         else:
-            if MosesTokenizer is None:
-                raise ImportError(
-                    "mosestokenizer is required for softsegmenter. "
-                    "Install it with: pip install mosestokenizer")
             tokenizer = MosesTokenizer(lang=self.moses_lang, no_escape=True)
 
         for idx, sample in enumerate(samples):
@@ -457,7 +437,7 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
             sample_metadata.append(sample)
 
         # Parallelize alignment computation using multiprocessing Pool
-        with Pool() as pool:
+        with Pool(processes=self.num_workers) as pool:
             results = pool.map(_process_sample_alignment, alignment_args)
 
         # Sort results by sample index to maintain original order
@@ -509,3 +489,20 @@ class SoftSegmenterBasedLatencyScorer(LatencyScorer):
             ))
 
         return self._do_score(resegmented_samples)
+
+    @classmethod
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--moses-lang",
+            type=str,
+            default=None,
+            help='Language code for Moses tokenizer (e.g., "en", "de"). '
+            "Use None for Chinese/Japanese or to skip tokenization.",
+        )
+        parser.add_argument(
+            "--num-workers",
+            type=int,
+            default=None,
+            help="Number of worker processes for parallel alignment. "
+            "Defaults to the number of CPU cores if not specified."
+        )

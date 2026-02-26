@@ -94,6 +94,7 @@ class LatencyScorer:
     Args:
         args (argparse.Namespace): Parsed command-line arguments.
     """
+
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
@@ -109,6 +110,21 @@ class LatencyScorer:
     @abstractmethod
     def requires_reference(self) -> bool:
         ...
+
+
+@dataclass
+class ResegmentedLatencyScoringSample:
+    """
+    A sample containing realigned hypotheses and references.
+
+    Attributes:
+        audio_name (str): The identifier of the audio file.
+        hypothesis (List[str]): Hypothesis lines after realignment.
+        reference (List[str]): Reference lines aligned to the hypothesis.
+    """
+    audio_name: str
+    hypothesis: List[OutputWithDelays]
+    reference: List[ReferenceSentenceDefinition]
 
 
 for loader, name, is_pkg in pkgutil.walk_packages(__path__, __name__ + "."):
