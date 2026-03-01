@@ -35,6 +35,7 @@ simulstream_inference = "simulstream.inference:cli_main"
 simulstream_score_quality = "simulstream.metrics.score_quality:cli_main"
 simulstream_score_latency = "simulstream.metrics.score_latency:cli_main"
 simulstream_stats = "simulstream.metrics.stats:cli_main"
+simulstream_run_omnisteval = "simulstream.metrics.score_omnisteval:cli_main"
 
 [project.optional-dependencies]
 dev = [
@@ -62,7 +63,8 @@ vad = [
 eval = [
     "unbabel-comet==2.2.6",
     "mweralign",
-    "sacrebleu"
+    "sacrebleu",
+    "omnisteval>=0.1.3",
 ]
 
 [tool.setuptools.dynamic]

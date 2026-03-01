@@ -167,27 +167,27 @@ option can be followed by running the dedicated command:
 ```
 simulstream_inference --speech-processor-config config/speech_processor.yaml \
     --wav-list-file PATH_TO_TXT_FILE_WITH_A_LIST_OF_WAV_FILES.txt \
-    --tgt-lang it --src-lang en --metrics-log-file metrics.jsonl
+    --tgt-lang it --src-lang en --metrics-log-file inference_log_file.jsonl
 ```
 
-Once you have generated the JSONL file containing the inference log (e.g. ``metrics.jsonl``), you
+Once you have generated the JSONL file containing the inference log (e.g. ``inference_log_file.jsonl``), you
 can score your speech processor by running:
 
 ```shell
 simulstream_score_latency --scorer stream_laal \
     --eval-config config/speech_processor.yaml \
-    --log-file metrics.jsonl \
+    --log-file inference_log_file.jsonl \
     --reference REFERENCE_FILE.txt \
     --audio-definition YAML_AUDIO_REFERENCES_DEFINITION.yaml
 
 simulstream_score_quality --scorer comet \
     --eval-config config/speech_processor.yaml \
-    --log-file metrics.jsonl \
+    --log-file inference_log_file.jsonl \
     --references REFERENCES_FILE.txt \
     --transcripts TRANSCRIPTS_FILE.txt
 
 simulstream_stats --eval-config config/speech_processor.yaml \
-    --log-file metrics.jsonl
+    --log-file inference_log_file.jsonl
 ```
 
 Each of them will output different metrics. ``simulstream_score_latency`` provides the metric for
@@ -201,6 +201,28 @@ of the generated outputs against one (or more) reference (and transcript, only f
 requiring them) file(s).
 
 Lastly, ``simulstream_stats`` computes statistics like the computational cost and flickering ratio.
+
+#### Combined Quality and Latency Evaluation
+
+For a combined quality and latency evaluation you can run a single command that computes quality
+metrics (BLEU, chrF, COMET) and latency metrics (LongYAAL, LongLAAL, LongAL, LongDAL, LongAP)
+using the [OmniSTEval toolkit](https://github.com/pe-trik/OmniSTEval) on the backend. 
+
+Example:
+
+```shell
+simulstream_run_omnisteval \
+    --eval-config config/speech_processor.yaml \
+    --log-file inference_log_file.jsonl \
+    --audio-definition audio_definition.yaml \
+    --reference REFERENCES_FILE.txt \
+    --latency-unit word \
+    --output-folder evaluation_results
+```
+
+The `audio-definition.yaml` file must map each audio file to its `offset`, `duration`.
+Results are written to the specified output folder (e.g. `evaluation_results`) as TSV metric files
+plus a human-readable TXT report.
 
 
 ## Contributing
