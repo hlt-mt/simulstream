@@ -127,9 +127,10 @@ def cli_main():
             --audio-definition audio_def.yaml \\
             --scorer sacrebleu
 
-    Otherwise, the script can be invoked without specifying the `--audio-definition`, but in this case
-    the name of the refererence and transcript files (trimmed of the extension) must be the same
-    of the audio files used (i.e. the names present in `metrics.jsonl`), e.g.:
+    Otherwise, the script can be invoked without specifying the `--audio-definition`, 
+    but in this case the name of the refererence and transcript files (trimmed of 
+    the extension) must be the same of the audio files used (i.e. the names present 
+    in `metrics.jsonl`), e.g.:
 
         $ python -m simulstream.metrics.score_quality \\
             --eval-config config/speech-processor.yaml \\
