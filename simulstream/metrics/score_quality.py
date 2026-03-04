@@ -124,6 +124,19 @@ def cli_main():
             --log-file metrics.jsonl \\
             --references ref.en \\
             --transcripts src.it \\
+            --audio-definition audio_def.yaml \\
+            --scorer sacrebleu
+
+    Otherwise, the script can be invoked without specifying the `--audio-definition`,
+    but in this case the name of the refererence and transcript files (trimmed of
+    the extension) must be the same of the audio files used (i.e. the names present
+    in `metrics.jsonl`), e.g.:
+
+        $ python -m simulstream.metrics.score_quality \\
+            --eval-config config/speech-processor.yaml \\
+            --log-file metrics.jsonl \\
+            --references 1.en,2.en \\
+            --transcripts 1.it,2.it \\
             --scorer sacrebleu
     """
     LOGGER.info(f"Simulstream version: {simulstream.__version__}")
@@ -140,14 +153,17 @@ def cli_main():
              "specified, this should be a single file containing all the lines of the audios in "
              "the reference, which should be of the same length of the audio definition. "
              "Otherwise, this should be a list of files, where each contains the lines "
-             "corresponding to an audio file.")
+             "corresponding to an audio file. In the case of being a list of files, the file "
+             "stem must match a corresponding transcript for an audio file (if applicable "
+             "to the quality metric).")
     parser.add_argument(
         "--transcripts", nargs="+", type=str,
         help="Path to the textual files containing reference transcripts. If `--audio-definition` "
              "is specified, this should be a single file containing all the lines of the audios "
              "in the reference, which should be of the same length of the audio definition. "
              "Otherwise, this should be a list of files, where each contains the lines "
-             "corresponding to an audio file.")
+             "corresponding to an audio file. In the case of being a list of files, the file "
+             "stem must match a corresponding reference for an audio file.")
     parser.add_argument(
         "--audio-definition", "-a", type=str, default=None,
         help="Path to the yaml file containing the segment-level audio information.")

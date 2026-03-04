@@ -177,14 +177,15 @@ can score your speech processor by running:
 simulstream_score_latency --scorer stream_laal \
     --eval-config config/speech_processor.yaml \
     --log-file metrics.jsonl \
-    --reference REFERENCE_FILE.txt \
+    --reference REFERENCES_FILE.tgt \
     --audio-definition YAML_AUDIO_REFERENCES_DEFINITION.yaml
 
 simulstream_score_quality --scorer comet \
     --eval-config config/speech_processor.yaml \
     --log-file metrics.jsonl \
-    --references REFERENCES_FILE.txt \
-    --transcripts TRANSCRIPTS_FILE.txt
+    --references REFERENCES_FILE.tgt \
+    --transcripts TRANSCRIPTS_FILE.src \
+    --audio-definition YAML_AUDIO_REFERENCES_DEFINITION.yaml
 
 simulstream_stats --eval-config config/speech_processor.yaml \
     --log-file metrics.jsonl
@@ -198,7 +199,20 @@ the selected metric (``--scorer``).
 
 Similarly, ``simulstream_score_quality`` evaluated the quality
 of the generated outputs against one (or more) reference (and transcript, only for metrics
-requiring them) file(s).
+requiring them) file(s). Here, the `YAML_AUDIO_REFERENCES_DEFINITION.yaml` has the same number of entries (sentence definitions
+in terms of wav file origin, offset and duration) as `REFERENCES_FILE.tgt` and `TRANSCRIPTS_FILE.src`.
+
+As an alternative, `simulstream_score_quality` can be run without the `--audio-definition` specification, by using a list of 
+files as arguments of `--references` and `--transcripts`. In this case, the name of the files (trimmed of the extension) 
+**must be the same** of the audio files used (i.e. the names present in `metrics.jsonl`). For instance:
+
+```
+simulstream_score_quality --scorer comet \
+    --eval-config config/speech_processor.yaml \
+    --log-file metrics.jsonl \
+    --references AUDIO1.tgt,AUDIO2.tgt,AUDIO3.tgt \
+    --transcripts AUDIO1.src,AUDIO2.src,AUDIO3.src
+```
 
 Lastly, ``simulstream_stats`` computes statistics like the computational cost and flickering ratio.
 
