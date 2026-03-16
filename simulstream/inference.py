@@ -53,13 +53,9 @@ def process_audio(
     # one speech chunk is the following
     samples_per_chunk = int(
         sample_rate * message_processor.speech_processor.speech_chunk_size)
-    i = 0
+
     for i in range(0, len(data), samples_per_chunk):
         output = message_processor.process_speech(data[i:i + samples_per_chunk].tobytes())
-        LOGGER.debug(f"response: {output}")
-    # send last part of the audio
-    if i < len(data):
-        output = message_processor.process_speech(data[i:].tobytes())
         LOGGER.debug(f"response: {output}")
 
 
