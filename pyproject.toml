@@ -62,8 +62,7 @@ vad = [
 eval = [
     "unbabel-comet==2.2.6",
     "mweralign",
-    "sacrebleu",
-    "torchvision<0.18"
+    "sacrebleu"
 ]
 
 [tool.setuptools.dynamic]
