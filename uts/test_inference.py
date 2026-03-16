@@ -27,7 +27,7 @@ def make_speech_processor(chunk_size_seconds=1.0):
     mock_output = IncrementalOutput(
         new_tokens=[], deleted_tokens=0, new_string="", deleted_string="")
     processor = MagicMock(
-        spec=["speech_chunk_size", "process_chunk", "end_of_stream","clear", "tokens_to_string"])
+        spec=["speech_chunk_size", "process_chunk", "end_of_stream", "clear", "tokens_to_string"])
     processor.speech_chunk_size = chunk_size_seconds
     processor.process_chunk.return_value = mock_output
     processor.end_of_stream.return_value = mock_output
