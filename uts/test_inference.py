@@ -57,6 +57,7 @@ class TestProcessAudio(unittest.TestCase):
         process_audio(message_processor, SAMPLE_RATE, data)
 
         self.assertEqual(message_processor.speech_processor.process_chunk.call_count, 2)
+        self.assertEqual(message_processor.client_buffer, b'')
 
     def test_remainder_chunk_not_sent_twice(self):
         chunk_size = 1.0
