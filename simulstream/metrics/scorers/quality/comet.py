@@ -13,17 +13,13 @@
 # limitations under the License
 
 import argparse
-import sys
 from typing import List
 
 from simulstream.metrics.scorers.quality import register_quality_scorer
 from simulstream.metrics.scorers.quality.mwersegmenter import MWERSegmenterBasedQualityScorer, \
     ResegmentedQualityScoringSample
 
-try:
-    from comet import download_model, load_from_checkpoint
-except ImportError:
-    sys.exit("Please install comet first with `pip install unbabel-comet`.")
+from comet import download_model, load_from_checkpoint
 
 
 @register_quality_scorer("comet")

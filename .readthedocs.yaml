@@ -24,3 +24,4 @@ python:
       extra_requirements:
         - dev
         - eval
+        - vad
