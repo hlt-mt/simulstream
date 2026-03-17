@@ -42,12 +42,6 @@ def make_message_processor(chunk_size_seconds=1.0):
 
 class TestProcessAudio(unittest.TestCase):
 
-    def setUp(self):
-        # Suppress metrics logging side effects
-        patcher = patch("simulstream.server.message_processor.METRICS_LOGGER")
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
     def test_exact_multiple(self):
         chunk_size = 1.0
         message_processor = make_message_processor(chunk_size)
