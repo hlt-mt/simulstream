@@ -69,7 +69,7 @@ class TestProcessAudio(unittest.TestCase):
 
         # Process_chunk processes full chunks only; remainder stays buffered for end_of_stream
         self.assertEqual(message_processor.speech_processor.process_chunk.call_count, 2)
-        self.assertEqual(len(message_processor.client_buffer), SAMPLE_RATE * 0.5)
+        self.assertEqual(len(message_processor.client_buffer), int(SAMPLE_RATE * 0.5))
 
     def test_single_chunk(self):
         chunk_size = 1.0
@@ -80,7 +80,7 @@ class TestProcessAudio(unittest.TestCase):
         process_audio(message_processor, SAMPLE_RATE, data)
 
         message_processor.speech_processor.process_chunk.assert_not_called()
-        self.assertEqual(len(message_processor.client_buffer), SAMPLE_RATE * 0.5)
+        self.assertEqual(len(message_processor.client_buffer), int(SAMPLE_RATE * 0.5))
 
     def test_empty_data(self):
         message_processor = make_message_processor()
