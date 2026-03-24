@@ -53,19 +53,20 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.ENCODER_SUBSAMPLING_FACTOR * self.HOP_LENGTH
 
-    def load_model(self, config: SimpleNamespace) -> None:
+    @classmethod
+    def load_model(cls, config: SimpleNamespace) -> None:
         model_path = "microsoft/Phi-4-multimodal-instruct"
 
-        self.processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-        self.model = AutoModelForCausalLM.from_pretrained(
+        cls.processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+        cls.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             device_map="cuda",
             torch_dtype="auto",
             trust_remote_code=True,
             _attn_implementation="eager",
         )
-        self.model.eval()
-        self.generation_config = GenerationConfig.from_pretrained(model_path)
+        cls.model.eval()
+        cls.generation_config = GenerationConfig.from_pretrained(model_path)
 
     @property
     def audio_max_len(self) -> int:
