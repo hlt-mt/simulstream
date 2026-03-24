@@ -125,6 +125,12 @@ class DecoderOnlyAttention(BaseStreamAtt):
         """Convert a list of decoded tokens to a plain output string."""
         ...
 
+    def set_target_language(self, language: str) -> None:
+        self.tgt_lang = language
+
+    def set_source_language(self, language: str) -> None:
+        self.src_lang = language
+
     def _preprocess(self, waveform: np.float32) -> dict:
         """
         Append *waveform* to ``self.audio_history``, enforce the maximum length,

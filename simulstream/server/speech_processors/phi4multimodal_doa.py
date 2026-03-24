@@ -75,8 +75,8 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
     def build_prompt(self) -> str:
         filled_prompt = (
             TEMPLATED_SPEECH_PROMPT
-            .replace("{src_lang}", LANG_MAPPER[self.src_lang_tag])
-            .replace("{tgt_lang}", LANG_MAPPER[self.tgt_lang_tag]))
+            .replace("{src_lang}", LANG_MAPPER[self.src_lang])
+            .replace("{tgt_lang}", LANG_MAPPER[self.tgt_lang]))
         prefix = self.text_history if self.text_history else ""
         return (
             f"{self._USER_START}{self._AUDIO_TOKEN}"
