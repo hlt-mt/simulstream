@@ -176,6 +176,18 @@ class BaseStreamAtt(BaseSpeechProcessor):
 
         # Multiply by the subsampling factor to recover the original number of frames
         frames_to_cut = earliest_attended_idx * self.audio_subsampling_factor
+        print(
+            "streamatt trim debug",
+            {
+                "discarded_text": int(discarded_text),
+                "history_len": int(len(self.text_history)),
+                "cross_attn_rows": int(cross_attn.shape[0]),
+                "cross_attn_cols": int(cross_attn.shape[1]),
+                "most_attended_head": most_attended_idxs[:5].tolist(),
+                "earliest_attended_idx": int(earliest_attended_idx),
+                "frames_to_cut": int(frames_to_cut),
+            },
+        )
 
         # Cut the unattended audio features
         self.audio_history = self.audio_history[frames_to_cut:]

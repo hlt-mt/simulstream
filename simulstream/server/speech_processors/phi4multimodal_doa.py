@@ -145,6 +145,16 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
         else:
             prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
+        print(
+            "phi4 prefix debug",
+            {
+                "history_len": prefix_len,
+                "input_len": int(input_len),
+                "audio_len": int(audio_len),
+                "prefix_rows": int(prefix_rows.shape[0]),
+                "new_tokens": int(len(new_tokens)),
+            },
+        )
         # New-token rows: one per step, each (1, H, 1, input_len+i)
         new_rows = [
             step_attn[self.cross_attn_layer][0]
@@ -155,7 +165,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             torch.zeros(0, max(audio_len, 1), device=self.device)
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0) # (n_prefix + n_new, audio_len)
-        cross_attn = self.normalize_attn(cross_attn)
 
         return new_tokens, cross_attn
 
