@@ -254,11 +254,13 @@ class BaseStreamAtt(BaseSpeechProcessor):
         print(f"selected {selected_output}")
         incremental_output = self._build_incremental_outputs(selected_output)
         # Discard textual history, if needed
-        discarded_text = self._update_text_history(selected_output)
         print(f"text history {self.text_history}")
+        discarded_text = self._update_text_history(selected_output)
         print(f"discarded {discarded_text}")
         # Trim audio corresponding to the discarded textual history
+        print(f"previous speech history {self.audio_history}")
         self._update_speech_history(discarded_text, cross_attn)
+        print(f"trimmed speech history {self.audio_history}")
         return incremental_output
 
     def end_of_stream(self) -> IncrementalOutput:
