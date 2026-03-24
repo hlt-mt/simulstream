@@ -131,7 +131,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         # Decode newly generated tokens only ──────────────────────────────────────────────────────
         new_ids = output.sequences[:, input_len:]  # (1, n_new)
         new_tokens = [
-            self.processor.tokenizer.decode([t], skip_special_tokens=False)
+            self.processor.tokenizer.decode([t], skip_special_tokens=True)
             for t in new_ids[0]
         ]
 
@@ -146,7 +146,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         new_rows = [
             step_attn[self.cross_attn_layer][0]
             .mean(dim=0).squeeze(0)[audio_positions]  # (audio_len,)
-            for step_attn in output.attentions[1:]
+            for step_attn in output.attentions[1:-1]    # avoid attention of <|end|> token
         ]
         new_attn = torch.stack(new_rows, dim=0) if new_rows else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
