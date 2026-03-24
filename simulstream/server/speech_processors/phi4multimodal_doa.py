@@ -161,6 +161,14 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             .mean(dim=0).squeeze(0)[audio_positions]  # (audio_len,)
             for step_attn in output.attentions[1:-1]    # avoid attention of <|end|> token
         ]
+        print(
+            "phi4 attention debug",
+            {
+                "decoded_new_token_count": int(len(new_tokens)),
+                "attention_step_count": int(len(output.attentions)),
+                "new_attention_row_count": int(len(new_rows)),
+            },
+        )
         new_attn = torch.stack(new_rows, dim=0) if new_rows else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
 
