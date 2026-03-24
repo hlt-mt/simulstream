@@ -21,7 +21,7 @@ from typing import List, Tuple
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
 from simulstream.server.speech_processors import SAMPLE_RATE, class_load
-from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, TEMPLATED_SPEECH_PROMPT, LANG_MAPPER
+from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, LANG_MAPPER
 
 
 class Phi4MultimodalDOA(DecoderOnlyAttention):
@@ -73,23 +73,12 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         return getattr(self.config, "audio_max_frames", 480_000)
 
     def build_prompt(self) -> str:
-        filled_prompt = (
-            TEMPLATED_SPEECH_PROMPT
-            .replace("{src_lang}", LANG_MAPPER[self.src_lang])
-            .replace("{tgt_lang}", LANG_MAPPER[self.tgt_lang]))
+        filled_prompt = f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
         prefix = "".join(self.text_history) if self.text_history else ""
         prompt = (
             f"{self._USER_START}{self._AUDIO_TOKEN}"
             f"{filled_prompt}{self._END_TOKEN}"
             f"{self._ASST_START}{prefix}"
-        )
-        print(
-            "phi4 prompt debug",
-            {
-                "src_lang": self.src_lang,
-                "tgt_lang": self.tgt_lang,
-                "prompt": prompt,
-            },
         )
         return prompt
 
