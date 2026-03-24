@@ -65,13 +65,10 @@ class DecoderOnlyAttention(BaseStreamAtt):
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
-        self.cross_attn_layer = getattr(self.config, "attention_layer", 3)
-        self.max_new_tokens = getattr(self.config, "max_new_tokens", 4096)
-        self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 360)
-        self.src_lang_tag = getattr(self.config, "src_lang_tag", "en")
-        self.tgt_lang_tag = getattr(self.config, "tgt_lang_tag", "en")
+        self.cross_attn_layer = getattr(self.config, "attn_layer", 3)
+        self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.max_new_tokens = getattr(self.config, "max_new_tokens", 128)
+        self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
 
     @property
     def audio_max_len(self) -> int:

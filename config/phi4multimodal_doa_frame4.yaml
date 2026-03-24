@@ -5,7 +5,7 @@ text_history:
 audio_history_max_duration: 180  # Maximum length for the audio buffer, in seconds
 text_history_max_len: 128
 speech_chunk_size: 0.5  # seconds
-cross_attn_layer: 3
+attn_layer: 3
 cutoff_frame_num: 4
 detokenizer_type: "hf"
 word_level_postprocess: True  # Disable if character-level language
