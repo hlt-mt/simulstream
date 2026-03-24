@@ -155,22 +155,27 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
                 "new_token_count": int(len(new_tokens)),
             },
         )
-        # New-token rows: one per step, each (1, H, 1, input_len+i)
+        # The prefill pass predicts the first generated token, so we use the last prompt row
+        # as its proxy audio-attention. Subsequent generated tokens come from later decode steps.
+        first_new_row = prefill_attn[-1:, audio_positions] if len(new_tokens) > 0 else \
+            torch.zeros(0, max(audio_len, 1), device=self.device)
         new_rows = [
             step_attn[self.cross_attn_layer][0]
             .mean(dim=0).squeeze(0)[audio_positions]  # (audio_len,)
-            for step_attn in output.attentions[1:-1]    # avoid attention of <|end|> token
+            for step_attn in output.attentions[1:]
         ]
         print(
             "phi4 attention debug",
             {
                 "decoded_new_token_count": int(len(new_tokens)),
                 "attention_step_count": int(len(output.attentions)),
-                "new_attention_row_count": int(len(new_rows)),
+                "subsequent_new_attention_row_count": int(len(new_rows)),
+                "first_token_proxy_row_count": int(first_new_row.shape[0]),
             },
         )
-        new_attn = torch.stack(new_rows, dim=0) if new_rows else \
+        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
+        new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0) # (n_prefix + n_new, audio_len)
         cross_attn = self.normalize_attn(cross_attn)
