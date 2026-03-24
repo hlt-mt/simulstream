@@ -32,8 +32,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
     -------------------
     model_path : str
         Default: ``"microsoft/Phi-4-multimodal-instruct"``
-    task : str
-        ``"transcribe"`` or ``"translate"``.  Default: ``"transcribe"``
     target_lang : str
         Target language when ``task="translate"``.  Default: ``"English"``
     """
