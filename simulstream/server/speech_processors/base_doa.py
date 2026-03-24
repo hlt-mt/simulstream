@@ -71,6 +71,7 @@ class DecoderOnlyAttention(BaseStreamAtt):
         self.src_lang_tag = getattr(self.config, "src_lang_tag", "en")
         self.tgt_lang_tag = getattr(self.config, "tgt_lang_tag", "en")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.max_new_tokens = getattr(self.config, "max_new_tokens", 128)
 
     @property
     def audio_max_len(self) -> int:
