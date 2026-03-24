@@ -239,9 +239,23 @@ class BaseStreamAtt(BaseSpeechProcessor):
         # Truncate tokens up to the first invalid alignment (if any)
         if len(invalid_tok_ids) > 0:
             selected_tokens = selected_tokens[:invalid_tok_ids[0]]
+        selected_before_word_postprocess = list(selected_tokens)
 
         if self.word_level_postprocess:
             selected_tokens = self._strip_incomplete_words(selected_tokens)
+
+        print(
+            "alignatt selection debug",
+            {
+                "generated_token_count": int(len(generated_tokens)),
+                "audio_token_count": int(cross_attn.size(1)),
+                "cutoff_audio_position": int(cutoff),
+                "peak_audio_positions_sample": most_attended_frames[:8].tolist(),
+                "invalid_token_indices": invalid_tok_ids[:8].tolist(),
+                "selected_count_before_word_postprocess": int(len(selected_before_word_postprocess)),
+                "selected_count_after_word_postprocess": int(len(selected_tokens)),
+            },
+        )
 
         # Store unselected tokens, to be used in the case of end of stream
         self.unselected_tokens = generated_tokens[len(selected_tokens):]
