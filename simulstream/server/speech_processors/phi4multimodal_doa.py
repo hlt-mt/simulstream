@@ -93,15 +93,16 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         """
         Run greedy generation and build the proxy cross-attention matrix.
 
-        ``output.attentions`` layout (decoder-only, use_cache=True)
-        ────────────────────────────────────────────────────────────
+        ``output.attentions`` (use_cache=True) contains the self-attention scores,
+        for each step and layer. H is the dimension of the attention heads.
+        ───────────────────────────────────────────────────────────────────────────────────────────
         output.attentions[0][layer]  → (1, H, input_len, input_len)  ← prefill
         output.attentions[i][layer]  → (1, H, 1, input_len+i)        ← new token i
 
         Returns
         -------
         List[str]
-            A list of generated tokens (n_new).
+            A list of the newly generated tokens (n_new).
         torch.Tensor
             Proxy cross-attention scores extracted from the self-attention scores,
             averaged over heads at ``self.cross_attn_layer`` (prefix + n_new, audio_len).
