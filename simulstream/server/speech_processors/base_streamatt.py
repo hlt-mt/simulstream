@@ -251,10 +251,12 @@ class BaseStreamAtt(BaseSpeechProcessor):
         print(generated_tokens, cross_attn.shape)
         # Select the part of the new hypothesis to be emitted, and trim cross-attention accordingly
         selected_output = self.alignatt_policy(generated_tokens, cross_attn)
-        print(selected_output)
+        print(f"selected {selected_output}")
         incremental_output = self._build_incremental_outputs(selected_output)
         # Discard textual history, if needed
         discarded_text = self._update_text_history(selected_output)
+        print(f"text history {self.text_history}")
+        print(f"discarded {discarded_text}")
         # Trim audio corresponding to the discarded textual history
         self._update_speech_history(discarded_text, cross_attn)
         return incremental_output

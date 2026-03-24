@@ -52,7 +52,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         text_history_cls = class_load(self.text_history_config.type)
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.ENCODER_SUBSAMPLING_FACTOR * self.HOP_LENGTH
-        self.eos_token_id = self.processor.tokenizer.convert_tokens_to_ids("<|end|>")
 
     @classmethod
     def load_model(cls, config: SimpleNamespace) -> None:
@@ -127,7 +126,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             output_attentions=True,
             return_dict_in_generate=True,
             do_sample=False,
-            bad_words_ids=[[self.eos_token_id]]
         )
 
         # Decode newly generated tokens only ──────────────────────────────────────────────────────
