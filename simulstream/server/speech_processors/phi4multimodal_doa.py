@@ -155,6 +155,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             torch.zeros(0, max(audio_len, 1), device=self.device)
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0) # (n_prefix + n_new, audio_len)
+        cross_attn = self.normalize_attn(cross_attn)
 
         return new_tokens, cross_attn
 
