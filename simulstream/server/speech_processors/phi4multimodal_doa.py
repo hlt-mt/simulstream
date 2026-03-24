@@ -43,12 +43,15 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
     _ASST_START  = "<|assistant|>"
 
     BOW_PREFIX = " "
+    ENCODER_SUBSAMPLING_FACTOR = 8
+    HOP_LENGTH = 160    # 10ms at 16kHz
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
         self.bow_prefix = self.BOW_PREFIX
         text_history_cls = class_load(self.text_history_config.type)
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
+        self.audio_subsampling_factor = self.ENCODER_SUBSAMPLING_FACTOR * self.HOP_LENGTH
 
     def load_model(self, config: SimpleNamespace) -> None:
         model_path = "microsoft/Phi-4-multimodal-instruct"
