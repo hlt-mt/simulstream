@@ -248,8 +248,10 @@ class BaseStreamAtt(BaseSpeechProcessor):
         speech = self._preprocess(waveform)
         # Generate new hypothesis with its corresponding cross-attention scores (no prefix)
         generated_tokens, cross_attn = self._generate(speech)
+        print(generated_tokens, cross_attn.shape)
         # Select the part of the new hypothesis to be emitted, and trim cross-attention accordingly
         selected_output = self.alignatt_policy(generated_tokens, cross_attn)
+        print(selected_output)
         incremental_output = self._build_incremental_outputs(selected_output)
         # Discard textual history, if needed
         discarded_text = self._update_text_history(selected_output)
