@@ -77,7 +77,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             TEMPLATED_SPEECH_PROMPT
             .replace("{src_lang}", LANG_MAPPER[self.src_lang])
             .replace("{tgt_lang}", LANG_MAPPER[self.tgt_lang]))
-        prefix = self.text_history if self.text_history else ""
+        prefix = "".join(self.text_history) if self.text_history else ""
         return (
             f"{self._USER_START}{self._AUDIO_TOKEN}"
             f"{filled_prompt}{self._END_TOKEN}"
@@ -140,8 +140,11 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         # output.attentions[0][layer]: (1, H, input_len, input_len)
         prefill_attn = (output.attentions[0][self.cross_attn_layer][0]
                         .mean(dim=0))  # (input_len, input_len)
-        prefix_rows = prefill_attn[
-            self.cross_attn_layer:, :][:, audio_positions]  # (n_prefix, audio_len)
+        prefix_len = len(self.text_history) if self.text_history else 0
+        if prefix_len > 0:
+            prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
+        else:
+            prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
         # New-token rows: one per step, each (1, H, 1, input_len+i)
         new_rows = [
             step_attn[self.cross_attn_layer][0]
