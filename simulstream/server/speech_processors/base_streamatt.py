@@ -180,11 +180,11 @@ class BaseStreamAtt(BaseSpeechProcessor):
             "streamatt trim debug",
             {
                 "discarded_text": int(discarded_text),
-                "history_len": int(len(self.text_history)),
-                "cross_attn_rows": int(cross_attn.shape[0]),
-                "cross_attn_cols": int(cross_attn.shape[1]),
-                "most_attended_head": most_attended_idxs[:5].tolist(),
-                "earliest_attended_idx": int(earliest_attended_idx),
+                "retained_history_token_count": int(len(self.text_history)),
+                "retained_text_rows": int(cross_attn.shape[0]),
+                "audio_token_count": int(cross_attn.shape[1]),
+                "peak_audio_positions_sample": most_attended_idxs[:5].tolist(),
+                "earliest_peak_audio_position": int(earliest_attended_idx),
                 "frames_to_cut": int(frames_to_cut),
             },
         )
