@@ -9,3 +9,4 @@ cross_attn_layer: 3
 cutoff_frame_num: 4
 detokenizer_type: "hf"
 word_level_postprocess: True  # Disable if character-level language
+max_new_tokens: 32
