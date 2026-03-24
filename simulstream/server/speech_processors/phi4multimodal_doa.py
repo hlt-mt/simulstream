@@ -122,6 +122,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             **inputs,
             max_new_tokens=self.max_new_tokens,
             generation_config=self.generation_config,
+            num_logits_to_keep=1,
             output_attentions=True,
             return_dict_in_generate=True,
             do_sample=False,
