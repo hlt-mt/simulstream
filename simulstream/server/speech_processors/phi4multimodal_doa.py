@@ -78,11 +78,20 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             .replace("{src_lang}", LANG_MAPPER[self.src_lang])
             .replace("{tgt_lang}", LANG_MAPPER[self.tgt_lang]))
         prefix = "".join(self.text_history) if self.text_history else ""
-        return (
+        prompt = (
             f"{self._USER_START}{self._AUDIO_TOKEN}"
             f"{filled_prompt}{self._END_TOKEN}"
             f"{self._ASST_START}{prefix}"
         )
+        print(
+            "phi4 prompt debug",
+            {
+                "src_lang": self.src_lang,
+                "tgt_lang": self.tgt_lang,
+                "prompt": prompt,
+            },
+        )
+        return prompt
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
         return self.processor(

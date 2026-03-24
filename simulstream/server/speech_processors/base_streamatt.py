@@ -15,6 +15,7 @@
 import torch
 import logging
 import numpy as np
+import string
 
 from types import SimpleNamespace
 from abc import abstractmethod
@@ -205,6 +206,19 @@ class BaseStreamAtt(BaseSpeechProcessor):
         Returns:
             List[str]: A list of generated tokens from which partial words are removed.
         """
+        # Some tokenizers emit a trailing empty token after punctuation/EOS; drop it first so
+        # complete outputs like [" output", ".", ""] are not mistaken for incomplete words
+        while tokens and tokens[-1] == "":
+            tokens = tokens[:-1]
+
+        if not tokens:
+            return []
+
+        last_token = tokens[-1].strip()
+        # If the hypothesis already ends with punctuation, keep it as a complete segment
+        if last_token and last_token[-1] in string.punctuation:
+            return tokens
+
         tokens_to_write = []
         # iterate from the end and count how many trailing tokens to drop
         num_tokens_incomplete = 0
