@@ -15,7 +15,7 @@
 import unittest
 from types import SimpleNamespace
 
-from simulstream.server.speech_processors.base_streamatt import PunctuationTextHistory, BaseStreamAtt
+from simulstream.server.speech_processors.base_streamatt import PunctuationTextHistory, BaseStreamAtt # noqa: E402
 
 
 class TestPunctuationTextHistory(unittest.TestCase):
@@ -58,23 +58,23 @@ class TestPunctuationTextHistory(unittest.TestCase):
         zh_history = ['回', '到', '纽', '约', '后', '，', '我']
         selected_history = self.punctuation_text_history.select_text_history(zh_history)
         self.assertEqual(selected_history, ['回', '到', '纽', '约', '后', '，', '我'])
-        
-        
+
+
 class TestStripIncompleteWords(unittest.TestCase):
     def setUp(self):
         self.config = SimpleNamespace()
         self._strip_incomplete_words = BaseStreamAtt._strip_incomplete_words
-    
+
     def test_incomplete_word_is_stripped(self):
         """Last word has no closing token — should be dropped."""
         stripped = self._strip_incomplete_words(self, ["▁U", "ser", "▁Inter", "ac"])
         self.assertEqual(stripped, ["▁U", "ser"])
-    
+
     def test_single_incomplete_word_returns_empty(self):
         """Only one word and it's incomplete — nothing left to return."""
         stripped = self._strip_incomplete_words(self, ["▁Inter", "ac"])
         self.assertEqual(stripped, [])
-    
+
     def test_multiple_incomplete_tokens_all_stripped(self):
         """Several continuation tokens after the last BOW — all should be dropped."""
         stripped = self._strip_incomplete_words(self, ["▁U", "ser", "▁Inter", "ac", "ti"])
@@ -87,14 +87,15 @@ class TestStripIncompleteWords(unittest.TestCase):
 
     def test_ends_with_multiple_periods(self):
         """Trailing period counts as strong punctuation — full token list returned."""
-        stripped = self._strip_incomplete_words(self, ["▁U", "ser", "▁Inter", "ac", "tion", ".", ".", "."])
+        stripped = self._strip_incomplete_words(
+            self, ["▁U", "ser", "▁Inter", "ac", "tion", ".", ".", "."])
         self.assertEqual(stripped, ["▁U", "ser", "▁Inter", "ac", "tion", ".", ".", "."])
-    
+
     def test_ends_with_non_strong_punctuation(self):
         """Non strong punctuation marks should be treated as standard tokens."""
         stripped = self._strip_incomplete_words(self, ["▁Hello", "-"])
         self.assertEqual(stripped, [])
-    
+
     def test_ends_with_question_mark(self):
         """Question marks should be treated as strong punctuation."""
         stripped = self._strip_incomplete_words(self, ["▁Is", "▁this", "▁work", "ing", "?"])
@@ -104,12 +105,12 @@ class TestStripIncompleteWords(unittest.TestCase):
         """Empty trailing tokens should be dropped; remaining punctuation keeps the list intact."""
         stripped = self._strip_incomplete_words(self, ["▁output", ".", ""])
         self.assertEqual(stripped, ["▁output", "."])
-    
+
     def test_multiple_trailing_empty_tokens(self):
         """Multiple trailing empty tokens should be dropped."""
         stripped = self._strip_incomplete_words(self, ["▁Hello", ".", "", ""])
         self.assertEqual(stripped, ["▁Hello", "."])
-    
+
     def test_only_empty_tokens_returns_empty(self):
         """Only empty tokens should be dropped."""
         stripped = self._strip_incomplete_words(self, ["", "", ""])
@@ -119,12 +120,12 @@ class TestStripIncompleteWords(unittest.TestCase):
         """Empty input should return an empty list."""
         stripped = self._strip_incomplete_words(self, [])
         self.assertEqual(stripped, [])
-    
+
     def test_single_bow_token_incomplete(self):
         """A lone BOW token with no following token is itself incomplete."""
         stripped = self._strip_incomplete_words(self, ["▁Hello"])
         self.assertEqual(stripped, [])
-    
+
     def test_no_bow_prefix_at_all(self):
         """No BOW token anywhere — loop never breaks, returns empty list."""
         stripped = self._strip_incomplete_words(self, ["ac", "tion"])
