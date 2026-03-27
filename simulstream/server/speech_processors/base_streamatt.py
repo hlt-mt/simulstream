@@ -177,18 +177,6 @@ class BaseStreamAtt(BaseSpeechProcessor):
 
         # Multiply by the subsampling factor to recover the original number of frames
         frames_to_cut = earliest_attended_idx * self.audio_subsampling_factor
-        print(
-            "streamatt trim debug",
-            {
-                "discarded_text": int(discarded_text),
-                "retained_history_token_count": int(len(self.text_history)),
-                "retained_text_rows": int(cross_attn.shape[0]),
-                "audio_token_count": int(cross_attn.shape[1]),
-                "peak_audio_positions_sample": most_attended_idxs[:5].tolist(),
-                "earliest_peak_audio_position": int(earliest_attended_idx),
-                "frames_to_cut": int(frames_to_cut),
-            },
-        )
 
         # Cut the unattended audio features
         self.audio_history = self.audio_history[frames_to_cut:]
@@ -253,23 +241,9 @@ class BaseStreamAtt(BaseSpeechProcessor):
         # Truncate tokens up to the first invalid alignment (if any)
         if len(invalid_tok_ids) > 0:
             selected_tokens = selected_tokens[:invalid_tok_ids[0]]
-        selected_before_word_postprocess = list(selected_tokens)
 
         if self.word_level_postprocess:
             selected_tokens = self._strip_incomplete_words(selected_tokens)
-
-        print(
-            "alignatt selection debug",
-            {
-                "generated_token_count": int(len(generated_tokens)),
-                "audio_token_count": int(cross_attn.size(1)),
-                "cutoff_audio_position": int(cutoff),
-                "peak_audio_positions_sample": most_attended_frames[:8].tolist(),
-                "invalid_token_indices": invalid_tok_ids[:8].tolist(),
-                "selected_count_before_word_postprocess": int(len(selected_before_word_postprocess)),
-                "selected_count_after_word_postprocess": int(len(selected_tokens)),
-            },
-        )
 
         # Store unselected tokens, to be used in the case of end of stream
         self.unselected_tokens = generated_tokens[len(selected_tokens):]
@@ -288,19 +262,13 @@ class BaseStreamAtt(BaseSpeechProcessor):
         speech = self._preprocess(waveform)
         # Generate new hypothesis with its corresponding cross-attention scores (no prefix)
         generated_tokens, cross_attn = self._generate(speech)
-        print(generated_tokens, cross_attn.shape)
         # Select the part of the new hypothesis to be emitted, and trim cross-attention accordingly
         selected_output = self.alignatt_policy(generated_tokens, cross_attn)
-        print(f"selected {selected_output}")
         incremental_output = self._build_incremental_outputs(selected_output)
         # Discard textual history, if needed
-        print(f"text history {self.text_history}")
         discarded_text = self._update_text_history(selected_output)
-        print(f"discarded {discarded_text}")
         # Trim audio corresponding to the discarded textual history
-        print(f"previous speech history {self.audio_history.shape}")
         self._update_speech_history(discarded_text, cross_attn)
-        print(f"trimmed speech history {self.audio_history.shape}")
         return incremental_output
 
     def end_of_stream(self) -> IncrementalOutput:
