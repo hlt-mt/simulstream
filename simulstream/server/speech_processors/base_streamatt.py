@@ -26,6 +26,7 @@ from simulstream.server.speech_processors.incremental_output import IncrementalO
 
 
 BOW_PREFIX = "\u2581"
+STRONG_PUNCTUATION = [".", "!", "?", ":", ";", "。"]
 
 
 logger = logging.getLogger(__name__)
@@ -182,8 +183,7 @@ class BaseStreamAtt(BaseSpeechProcessor):
         # Check audio history not exceeding maximum allowed length
         self._cut_audio_exceeding_maxlen()
 
-    @staticmethod
-    def _strip_incomplete_words(tokens: List[str]) -> List[str]:
+    def _strip_incomplete_words(self, tokens: List[str]) -> List[str]:
         """
         Remove last incomplete word(s) from the new hypothesis.
 
@@ -193,6 +193,19 @@ class BaseStreamAtt(BaseSpeechProcessor):
         Returns:
             List[str]: A list of generated tokens from which partial words are removed.
         """
+        # Some tokenizers emit a trailing empty token after punctuation/EOS; drop it first so
+        # complete outputs like [" output", ".", ""] are not mistaken for incomplete words
+        while tokens and tokens[-1] == "":
+            tokens = tokens[:-1]
+
+        if not tokens:
+            return []
+
+        last_token = tokens[-1].strip()
+        # If the hypothesis already ends with punctuation, keep it as a complete segment
+        if last_token and last_token[-1] in STRONG_PUNCTUATION:
+            return tokens
+
         tokens_to_write = []
         # iterate from the end and count how many trailing tokens to drop
         num_tokens_incomplete = 0
@@ -305,8 +318,6 @@ class PunctuationTextHistory:
     The current implementation supports only SentencePiece.
     """
 
-    STRONG_PUNCTUATION = [".", "!", "?", ":", ";", "。"]
-
     def __init__(self, config: SimpleNamespace):
         self.config = config
 
@@ -317,7 +328,7 @@ class PunctuationTextHistory:
         for token in reversed(text_history):
             prefix_token = token
             contains_punctuation = False
-            for punct in self.STRONG_PUNCTUATION:
+            for punct in STRONG_PUNCTUATION:
                 if punct in prefix_token:
                     contains_punctuation = True
                     break
