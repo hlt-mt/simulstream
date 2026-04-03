@@ -42,10 +42,10 @@ class DecoderOnlyAttention(BaseStreamAtt):
     Generic Decoder-only Attention-based policy for SpeechLLMs.
 
     The class handles:
-    - Rolling raw-waveform history accumulation.
+    - Raw-waveform history accumulation.
     - Greedy generation with ``output_attentions=True``.
     - Building the proxy cross-attention matrix from self-attention weights.
-    - Token decoding.
+    - Applying StreamAtt-based policy on the proxy cross-attention matrix.
 
     Subclasses must implement the five abstract methods listed below.
 
@@ -53,19 +53,18 @@ class DecoderOnlyAttention(BaseStreamAtt):
     ----------
     config : SimpleNamespace
         All fields from :class:`BaseStreamAtt`, plus:
-
-        device : str
-            Torch device string.  Default: ``"cuda"``.
-        audio_max_frames : int
-            Maximum raw waveform samples to keep in the rolling history
-            (at 16 kHz).  Default: ``480_000`` (30 s).
+        attn_layer : int
+            Layer from which to extract attention scores. Default: ``0``.
+        audio_history_max_duration : int
+            Maximum raw waveform length to keep in the rolling history.
+            Default: ``180`` (seconds).
         max_new_tokens : int
-            Maximum tokens to generate per chunk.  Default: ``200``.
+            Maximum tokens to generate per chunk.  Default: ``32``.
     """
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
-        self.cross_attn_layer = getattr(self.config, "attn_layer", 3)
+        self.cross_attn_layer = getattr(self.config, "attn_layer", 0)
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)

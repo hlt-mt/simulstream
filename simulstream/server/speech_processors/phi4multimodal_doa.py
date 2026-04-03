@@ -27,13 +27,6 @@ from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, 
 class Phi4MultimodalDOA(DecoderOnlyAttention):
     """
     Decoder-Only Attention agent for ``microsoft/Phi-4-multimodal-instruct``.
-
-    Extra config fields
-    -------------------
-    model_path : str
-        Default: ``"microsoft/Phi-4-multimodal-instruct"``
-    target_lang : str
-        Target language when ``task="translate"``.  Default: ``"English"``
     """
 
     # Phi-4 special tokens
@@ -67,10 +60,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         )
         cls.model.eval()
         cls.generation_config = GenerationConfig.from_pretrained(model_path)
-
-    @property
-    def audio_max_len(self) -> int:
-        return getattr(self.config, "audio_max_frames", 480_000)
 
     def build_prompt(self) -> str:
         filled_prompt = f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
