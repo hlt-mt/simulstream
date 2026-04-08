@@ -34,7 +34,7 @@ TEMPLATED_SPEECH_PROMPT = \
      "translation, without any additional explanations or commentary. Please translate the "
      "provided {src_lang} speech into {tgt_lang}:")
 
-LANG_MAPPER = {"en": "English", "it": "Italian"}
+LANG_MAPPER = {"en": "English", "it": "Italian", "de": "German", "zh": "Chinese (simplified)"}
 
 
 class DecoderOnlyAttention(BaseStreamAtt):
