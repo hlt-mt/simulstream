@@ -1,0 +1,170 @@
+# Copyright 2026 FBK
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License
+
+import logging
+from types import SimpleNamespace
+from typing import List, Tuple
+
+import numpy as np
+import torch
+
+from qwen_omni_utils import process_mm_info
+from transformers import Qwen2_5OmniForConditionalGeneration, Qwen2_5OmniProcessor
+
+from simulstream.server.speech_processors import SAMPLE_RATE, class_load
+from simulstream.server.speech_processors.base_doa import (
+    DecoderOnlyAttention,
+    LANG_MAPPER,
+    TEMPLATED_SPEECH_PROMPT,
+)
+
+
+logger = logging.getLogger(__name__)
+
+
+class Qwen2OmniDOA(DecoderOnlyAttention):
+    """
+    Decoder-Only Attention agent for ``Qwen/Qwen2.5-Omni-*``.
+
+    Extra config fields
+    -------------------
+    hf_model_name : str
+        Default: ``"Qwen/Qwen2.5-Omni-7B"``.
+        ``"Qwen/Qwen2.5-Omni-3B"`` is also supported.
+    """
+
+    BOW_PREFIX = " "
+    AUDIO_TOKEN_STRIDE = 640
+    SYSTEM_PROMPT = (
+        "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
+        "perceiving auditory and visual inputs, as well as generating text and speech. Only "
+        "return the answer requested. Do not include any explanation or introductions."
+    )
+
+    def __init__(self, config: SimpleNamespace):
+        super().__init__(config)
+        self.bow_prefix = self.BOW_PREFIX
+        text_history_cls = class_load(self.text_history_config.type)
+        self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
+        self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
+        self.use_video =  getattr(self.config, "use_video", False)
+
+    @classmethod
+    def load_model(cls, config: SimpleNamespace) -> None:
+        model_name = getattr(
+            config,
+            "hf_model_name",
+            getattr(config, "model_path", "Qwen/Qwen2.5-Omni-7B"),
+        )
+        attn_impl = getattr(config, "attn_implementation", "flash_attention_2")
+
+        cls.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(
+            model_name,
+            torch_dtype="auto",
+            device_map="auto",
+            attn_implementation=attn_impl,
+        )
+        cls.processor = Qwen2_5OmniProcessor.from_pretrained(model_name)
+        cls.model.eval()
+
+    def build_prompt(self) -> str:
+        return (
+            TEMPLATED_SPEECH_PROMPT
+            .replace("{src_lang}", LANG_MAPPER.get(self.src_lang, self.src_lang))
+            .replace("{tgt_lang}", LANG_MAPPER.get(self.tgt_lang, self.tgt_lang))
+        )
+
+    def build_processor_inputs(self, waveform: np.ndarray) -> dict:
+        conversation = [
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": self.SYSTEM_PROMPT}],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "audio", "audio": waveform},
+                    {"type": "text", "text": self.build_prompt()},
+                ],
+            },
+        ]
+
+        prompt = self.processor.apply_chat_template(
+            conversation,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        prefix = "".join(self.text_history) if self.text_history else ""
+        audios, images, videos = process_mm_info(conversation, use_audio_in_video=False)
+
+        return self.processor(
+            text=f"{prompt}{prefix}",
+            audio=audios,
+            images=images,
+            videos=videos,
+            sampling_rate=SAMPLE_RATE,
+            return_tensors="pt",
+            padding=True,
+            use_audio_in_video=True,
+        ).to(self.device)
+
+    def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
+        input_ids = inputs["input_ids"]
+        input_len = input_ids.shape[1]
+
+        audio_token_id = getattr(self.model.config, "audio_token_index", None)
+        if audio_token_id is None:
+            raise ValueError("Qwen2.5-Omni config is missing `audio_token_index`.")
+        audio_positions = (input_ids[0] == audio_token_id).nonzero(as_tuple=True)[0]
+        audio_len = audio_positions.shape[0]
+
+        output = self.model.generate(
+            **inputs,
+            generation_mode="text",
+            use_audio_in_video=False,
+            thinker_max_new_tokens=self.max_new_tokens,
+            thinker_output_attentions=True,
+            thinker_return_dict_in_generate=True,
+            thinker_do_sample=False,
+        )
+
+        new_ids = output.sequences[:, input_len:]
+        new_tokens = [
+            self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
+            for token_id in new_ids[0]
+        ]
+
+        prefill_attn = output.attentions[0][self.cross_attn_layer][0].mean(dim=0)
+        prefix_len = len(self.text_history) if self.text_history else 0
+        if prefix_len > 0:
+            prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
+        else:
+            prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
+
+        first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else \
+            torch.zeros(0, max(audio_len, 1), device=self.device)
+        new_rows = [
+            step_attn[self.cross_attn_layer][0].mean(dim=0).squeeze(0)[audio_positions]
+            for step_attn in output.attentions[1:]
+        ]
+        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
+            torch.zeros(0, max(audio_len, 1), device=self.device)
+        new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+
+        cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
+        cross_attn = self.normalize_attn(cross_attn)
+        return new_tokens, cross_attn
+
+    def tokens_to_string(self, tokens: List[str]) -> str:
+        return "".join(tokens).strip()

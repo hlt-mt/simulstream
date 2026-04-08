@@ -1,0 +1,14 @@
+type: "simulstream.server.speech_processors.qwen2_5_doa.Qwen2OmniDOA"
+text_history:
+  type: "simulstream.server.speech_processors.base_streamatt.FixedWordsTextHistory"
+  history_words: 10
+audio_history_max_duration: 180  # Maximum length for the audio buffer, in seconds
+text_history_max_len: 128
+speech_chunk_size: 1  # seconds
+attn_layer: 3
+cutoff_frame_num: 4
+detokenizer_type: "hf"
+hf_model_name: "Qwen/Qwen2.5-Omni-3B"
+use_video: True
+word_level_postprocess: True  # Disable if character-level language
+max_new_tokens: 32
