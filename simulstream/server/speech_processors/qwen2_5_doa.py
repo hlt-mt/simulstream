@@ -42,6 +42,10 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
     hf_model_name : str
         Default: ``"Qwen/Qwen2.5-Omni-7B"``.
         ``"Qwen/Qwen2.5-Omni-3B"`` is also supported.
+    repetition_penalty : float
+        Repetition penalty for text generation. Default: ``1.0``.
+    no_repeat_ngram_size : int
+        N-gram blocking size for text generation. Default: ``0``.
     """
 
     BOW_PREFIX = " "
@@ -61,6 +65,8 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
         self.use_video =  getattr(self.config, "use_video", False)
+        self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.1)
+        self.no_repeat_ngram_size = getattr(self.config, "no_repeat_ngram_size", 4)
 
     @classmethod
     def load_model(cls, config: SimpleNamespace) -> None:
@@ -157,6 +163,8 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             use_audio_in_video=True,
             return_audio=False,
             thinker_max_new_tokens=self.max_new_tokens,
+            thinker_repetition_penalty=self.repetition_penalty,
+            thinker_no_repeat_ngram_size=self.no_repeat_ngram_size,
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
