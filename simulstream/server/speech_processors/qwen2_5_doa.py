@@ -33,7 +33,7 @@ from simulstream.server.speech_processors.base_doa import (
 logger = logging.getLogger(__name__)
 
 
-class Qwen2OmniDOA(DecoderOnlyAttention):
+class Qwen2_5OmniDOA(DecoderOnlyAttention):
     """
     Decoder-Only Attention agent for ``Qwen/Qwen2.5-Omni-*``.
 
