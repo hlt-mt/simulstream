@@ -65,8 +65,8 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
         self.use_video =  getattr(self.config, "use_video", False)
-        self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.1)
-        self.no_repeat_ngram_size = getattr(self.config, "no_repeat_ngram_size", 4)
+        self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.05)
+        self.no_repeat_ngram_size = getattr(self.config, "no_repeat_ngram_size", 5)
 
     @classmethod
     def load_model(cls, config: SimpleNamespace) -> None:
