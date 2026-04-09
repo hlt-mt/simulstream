@@ -46,6 +46,9 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
 
     BOW_PREFIX = " "
     AUDIO_TOKEN_STRIDE = 640
+    AUDIO_TOKEN_INDEX = 151646
+    AUDIO_START_TOKEN_ID = 151647
+    AUDIO_END_TOKEN_ID = 151648
     SYSTEM_PROMPT = (
         "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
         "perceiving auditory and visual inputs, as well as generating text and speech. Only "
@@ -106,7 +109,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             tokenize=False,
         )
         prefix = "".join(self.text_history) if self.text_history else ""
-        audios, images, videos = process_mm_info(conversation, use_audio_in_video=False)
+        audios, images, videos = process_mm_info(conversation, use_audio_in_video=True)
 
         return self.processor(
             text=f"{prompt}{prefix}",
@@ -119,20 +122,41 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             use_audio_in_video=True,
         ).to(self.device)
 
+    def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
+        audio_positions = (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+        if audio_positions.numel() > 0:
+            return audio_positions
+
+        start_positions = (input_ids[0] == self.AUDIO_START_TOKEN_ID).nonzero(as_tuple=True)[0]
+        end_positions = (input_ids[0] == self.AUDIO_END_TOKEN_ID).nonzero(as_tuple=True)[0]
+        if start_positions.numel() == 0 or end_positions.numel() == 0:
+            raise ValueError(
+                "Qwen2.5-Omni audio tokens were not found in the prompt. Checked "
+                "`audio_token_index`, `<|audio_bos|>`, and `<|audio_eos|>`."
+            )
+
+        start_pos = start_positions[0]
+        end_positions = end_positions[end_positions > start_pos]
+        if end_positions.numel() == 0:
+            raise ValueError("Qwen2.5-Omni found `<|audio_bos|>` but not a matching `<|audio_eos|>`.")
+
+        end_pos = end_positions[0]
+        if end_pos <= start_pos + 1:
+            raise ValueError("Qwen2.5-Omni found empty audio span between `<|audio_bos|>` and `<|audio_eos|>`.")
+
+        return torch.arange(start_pos + 1, end_pos, device=input_ids.device)
+
     def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
         input_ids = inputs["input_ids"]
         input_len = input_ids.shape[1]
 
-        audio_token_id = getattr(self.model.config, "audio_token_index", None)
-        if audio_token_id is None:
-            raise ValueError("Qwen2.5-Omni config is missing `audio_token_index`.")
-        audio_positions = (input_ids[0] == audio_token_id).nonzero(as_tuple=True)[0]
+        audio_positions = self._find_audio_positions(input_ids)
         audio_len = audio_positions.shape[0]
 
         output = self.model.generate(
             **inputs,
             generation_mode="text",
-            use_audio_in_video=False,
+            use_audio_in_video=True,
             thinker_max_new_tokens=self.max_new_tokens,
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
