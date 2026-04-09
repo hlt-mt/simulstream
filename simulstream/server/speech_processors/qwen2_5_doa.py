@@ -51,8 +51,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
     AUDIO_END_TOKEN_ID = 151648
     SYSTEM_PROMPT = (
         "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
-        "perceiving auditory and visual inputs, as well as generating text and speech. Only "
-        "return the answer requested. Do not include any explanation or introductions."
+        "perceiving auditory and visual inputs, as well as generating text and speech."
     )
 
     def __init__(self, config: SimpleNamespace):
