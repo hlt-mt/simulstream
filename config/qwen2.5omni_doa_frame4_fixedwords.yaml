@@ -5,7 +5,7 @@ text_history:
 audio_history_max_duration: 180  # Maximum length for the audio buffer, in seconds
 text_history_max_len: 128
 speech_chunk_size: 1  # seconds
-attn_layer: 3
+attn_layer: __LAYER__
 cutoff_frame_num: 4
 detokenizer_type: "hf"
 hf_model_name: "Qwen/Qwen2.5-Omni-3B"
