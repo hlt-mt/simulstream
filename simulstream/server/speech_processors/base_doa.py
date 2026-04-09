@@ -55,6 +55,10 @@ class DecoderOnlyAttention(BaseStreamAtt):
         All fields from :class:`BaseStreamAtt`, plus:
         attn_layer : int
             Layer from which to extract attention scores. Default: ``0``.
+        average_attn_over_layers : bool
+            Whether to average attention over all decoder layers instead of
+            using the single layer selected by ``attn_layer``.
+            Default: ``False``.
         audio_history_max_duration : int
             Maximum raw waveform length to keep in the rolling history.
             Default: ``180`` (seconds).
@@ -65,6 +69,7 @@ class DecoderOnlyAttention(BaseStreamAtt):
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
         self.cross_attn_layer = getattr(self.config, "attn_layer", 0)
+        self.average_attn_over_layers = getattr(self.config, "average_attn_over_layers", False)
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
@@ -127,6 +132,14 @@ class DecoderOnlyAttention(BaseStreamAtt):
 
     def set_source_language(self, language: str) -> None:
         self.src_lang = language
+
+    def mean_attn_over_heads_and_selected_layers(self, step_attn) -> torch.Tensor:
+        if self.average_attn_over_layers:
+            return torch.stack(
+                [layer_attn[0].mean(dim=0) for layer_attn in step_attn],
+                dim=0,
+            ).mean(dim=0)
+        return step_attn[self.cross_attn_layer][0].mean(dim=0)
 
     def _preprocess(self, waveform: np.float32) -> dict:
         """

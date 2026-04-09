@@ -125,8 +125,9 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         # Build proxy cross-attention for the hypothesis (prefix + new_tokens) ────────────────────
         # Prefix rows from the prefill pass
         # output.attentions[0][layer]: (1, H, input_len, input_len)
-        prefill_attn = (output.attentions[0][self.cross_attn_layer][0]
-                        .mean(dim=0))  # (input_len, input_len)
+        prefill_attn = self.mean_attn_over_heads_and_selected_layers(
+            output.attentions[0]
+        )  # (input_len, input_len)
         prefix_len = len(self.text_history) if self.text_history else 0
         if prefix_len > 0:
             prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
@@ -137,8 +138,8 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         first_new_row = prefill_attn[-1:, audio_positions] if len(new_tokens) > 0 else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
         new_rows = [
-            step_attn[self.cross_attn_layer][0]
-            .mean(dim=0).squeeze(0)[audio_positions]  # (audio_len,)
+            self.mean_attn_over_heads_and_selected_layers(step_attn)
+            .squeeze(0)[audio_positions]  # (audio_len,)
             for step_attn in output.attentions[1:]
         ]
         subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
