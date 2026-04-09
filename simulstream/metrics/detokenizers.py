@@ -21,7 +21,7 @@ def build_hf_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], str]:
 
     assert hasattr(config, "hf_model_name"), \
         "`hf_model_name` required in the eval config for `hf` detokenizer"
-    processor = AutoProcessor.from_pretrained(config.hf_model_name, trust_ret_code=True)
+    processor = AutoProcessor.from_pretrained(config.hf_model_name, trust_remote_code=True)
 
     def detokenize(input_tokens: List[str]) -> str:
         return processor.tokenizer.convert_tokens_to_string(input_tokens)
