@@ -1,7 +1,7 @@
 type: "simulstream.server.speech_processors.qwen2_5_doa.Qwen2_5OmniDOA"
 text_history:
   type: "simulstream.server.speech_processors.base_streamatt.FixedWordsTextHistory"
-  history_words: 10
+  history_words: __HISTORY__
 audio_history_max_duration: 120  # Maximum length for the audio buffer, in seconds
 text_history_max_len: 128
 speech_chunk_size: 1  # seconds
