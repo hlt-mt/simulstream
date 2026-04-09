@@ -155,13 +155,15 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
 
         output = self.model.generate(
             **inputs,
-            generation_mode="text",
             use_audio_in_video=True,
+            return_audio=False,
             thinker_max_new_tokens=self.max_new_tokens,
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
         )
+        if isinstance(output, tuple):
+            output = output[0]
 
         new_ids = output.sequences[:, input_len:]
         new_tokens = [
