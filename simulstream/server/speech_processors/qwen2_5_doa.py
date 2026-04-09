@@ -70,7 +70,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             "hf_model_name",
             getattr(config, "model_path", "Qwen/Qwen2.5-Omni-7B"),
         )
-        attn_impl = getattr(config, "attn_implementation", "flash_attention_2")
+        attn_impl = getattr(config, "attn_implementation", "eager") #"flash_attention_2")
 
         cls.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(
             model_name,
