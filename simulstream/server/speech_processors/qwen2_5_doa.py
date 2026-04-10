@@ -29,6 +29,10 @@ from simulstream.server.speech_processors.base_doa import (
     TEMPLATED_SPEECH_PROMPT,
 )
 
+from transformers import set_seed
+torch.manual_seed(42)
+set_seed(42)
+
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +172,8 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
+            do_sample=False,
+            temperature=0.0,
         )
         if isinstance(output, tuple):
             output = output[0]

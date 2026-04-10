@@ -23,6 +23,10 @@ from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 from simulstream.server.speech_processors import SAMPLE_RATE, class_load
 from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, LANG_MAPPER
 
+from transformers import set_seed
+torch.manual_seed(42)
+set_seed(42)
+
 
 class Phi4MultimodalDOA(DecoderOnlyAttention):
     """
@@ -113,6 +117,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             output_attentions=True,
             return_dict_in_generate=True,
             do_sample=False,
+            temperature=0.0,
         )
 
         # Decode newly generated tokens only ──────────────────────────────────────────────────────
