@@ -70,6 +70,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
         self.use_video =  getattr(self.config, "use_video", False)
         self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.05)
+        self.temperature = getattr(self.config, "temperature", 1.0)
         self.no_repeat_ngram_size = getattr(self.config, "no_repeat_ngram_size", 5)
 
     @classmethod
@@ -172,8 +173,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
-            do_sample=False,
-            temperature=0.0,
+            temperature=self.temperature,
         )
         if isinstance(output, tuple):
             output = output[0]
