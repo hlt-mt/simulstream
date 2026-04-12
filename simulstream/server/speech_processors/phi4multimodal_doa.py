@@ -117,7 +117,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             output_attentions=True,
             return_dict_in_generate=True,
             do_sample=False,
-            temperature=0.0,
         )
 
         # Decode newly generated tokens only ──────────────────────────────────────────────────────
