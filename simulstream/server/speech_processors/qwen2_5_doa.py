@@ -113,16 +113,23 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             },
         ]
 
+        prefix = "".join(self.text_history) if self.text_history else ""
+        if prefix:
+            conversation.append({
+                "role": "assistant",
+                "content": [{"type": "text", "text": prefix}],
+            })
+
         prompt = self.processor.apply_chat_template(
             conversation,
-            add_generation_prompt=True,
+            add_generation_prompt=not bool(prefix),  # False when prefix is present
             tokenize=False,
         )
-        prefix = "".join(self.text_history) if self.text_history else ""
+
         audios, images, videos = process_mm_info(conversation, use_audio_in_video=True)
 
         return self.processor(
-            text=f"{prompt}{prefix}",
+            text=prompt,
             audio=audios,
             images=images,
             videos=videos,
