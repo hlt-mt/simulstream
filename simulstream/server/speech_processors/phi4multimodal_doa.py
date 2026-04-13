@@ -157,4 +157,4 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
 
     def tokens_to_string(self, tokens: List[str]) -> str:
-        return "".join(tokens).strip()
+        return "".join(tokens)

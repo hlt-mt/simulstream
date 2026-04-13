@@ -206,4 +206,4 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         return new_tokens, cross_attn
 
     def tokens_to_string(self, tokens: List[str]) -> str:
-        return "".join(tokens).strip()
+        return "".join(tokens)
