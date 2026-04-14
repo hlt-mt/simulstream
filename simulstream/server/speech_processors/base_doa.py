@@ -21,7 +21,11 @@ import numpy as np
 import torch
 
 from simulstream.server.speech_processors import SAMPLE_RATE
-from simulstream.server.speech_processors.base_streamatt import BaseStreamAtt
+from simulstream.server.speech_processors.base_streamatt import (
+    BaseStreamAtt,
+    FixedWordsTextHistory,
+    PunctuationTextHistory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +68,10 @@ class DecoderOnlyAttention(BaseStreamAtt):
             Default: ``180`` (seconds).
         max_new_tokens : int
             Maximum tokens to generate per chunk.  Default: ``32``.
+        text_history.summary_max_new_tokens : int
+            Extra option used only by summary-capable text-history classes.
+            Maximum tokens generated when updating the running summary.
+            Default: ``64``.
     """
 
     def __init__(self, config: SimpleNamespace):
@@ -72,7 +80,8 @@ class DecoderOnlyAttention(BaseStreamAtt):
         self.average_attn_over_layers = getattr(self.config, "average_attn_over_layers", False)
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
+        self.max_new_tokens = getattr(self.config, "max_new_tokens", 64)
+        self.prefix_summary = ""
 
     @property
     def audio_max_len(self) -> int:
@@ -127,11 +136,45 @@ class DecoderOnlyAttention(BaseStreamAtt):
         """Convert a list of decoded tokens to a plain output string."""
         ...
 
+    def summarize_text(self, prompt: str, max_new_tokens: int) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement summarize_text()."
+        )
+
     def set_target_language(self, language: str) -> None:
         self.tgt_lang = language
 
     def set_source_language(self, language: str) -> None:
         self.src_lang = language
+
+    def _summary_language_name(self) -> str:
+        if getattr(self, "tgt_lang", None):
+            return LANG_MAPPER.get(self.tgt_lang, self.tgt_lang)
+        if getattr(self, "src_lang", None):
+            return LANG_MAPPER.get(self.src_lang, self.src_lang)
+        return "the same language as the context"
+
+    def build_text_prefix(self) -> str:
+        raw_prefix = "".join(self.text_history) if self.text_history else ""
+        build_text_prefix = getattr(self.text_history_method, "build_text_prefix", None)
+        if build_text_prefix is None:
+            return raw_prefix
+        return build_text_prefix(raw_prefix, self.prefix_summary)
+
+    def _update_text_history(self, new_output: List[str]) -> int:
+        previous_history = list(self.text_history) if self.text_history else []
+        current_history = previous_history + new_output
+        discarded_text = super()._update_text_history(new_output)
+        update_prefix_summary = getattr(self.text_history_method, "update_prefix_summary", None)
+        if discarded_text > 0 and update_prefix_summary is not None:
+            self.prefix_summary = update_prefix_summary(
+                discarded_tokens=current_history[:discarded_text],
+                prefix_summary=self.prefix_summary,
+                tokens_to_string=self.tokens_to_string,
+                summarize_text=self.summarize_text,
+                language_name=self._summary_language_name(),
+            )
+        return discarded_text
 
     def mean_attn_over_heads_and_selected_layers(self, step_attn) -> torch.Tensor:
         if self.average_attn_over_layers:
@@ -156,3 +199,84 @@ class DecoderOnlyAttention(BaseStreamAtt):
             self.audio_history = self.audio_history[-self.audio_max_len:]
 
         return self.build_processor_inputs(self.audio_history)
+
+    def clear(self) -> None:
+        super().clear()
+        self.prefix_summary = ""
+
+
+class _SummaryPrefixTextHistory:
+    STRONG_PUNCTUATION = [".", "!", "?", ":", ";", "。"]
+
+    def __init__(self, config: SimpleNamespace, _bow_prefix: str):
+        self.summary_max_new_tokens = getattr(config, "summary_max_new_tokens", 32)
+
+    def build_text_prefix(self, raw_prefix: str, prefix_summary: str) -> str:
+        if not prefix_summary:
+            return raw_prefix
+        prefix_summary = prefix_summary.strip()
+        if prefix_summary and not prefix_summary.endswith(tuple(self.STRONG_PUNCTUATION)):
+            prefix_summary = f"{prefix_summary}."
+        return f"{prefix_summary} {raw_prefix}" if raw_prefix else f"{prefix_summary} "
+
+    def update_prefix_summary(
+            self,
+            discarded_tokens: List[str],
+            prefix_summary: str,
+            tokens_to_string,
+            summarize_text,
+            language_name: str) -> str:
+        discarded_text = tokens_to_string(discarded_tokens).strip()
+        if not discarded_text:
+            return prefix_summary
+        if prefix_summary:
+            summary_prompt = (
+                f"Update this running summary in {language_name}. Keep it brief and useful for "
+                f"continuing the translation. Preserve key entities, terminology, numbers, and "
+                f"unresolved references. Return only the updated summary.\n\n"
+                f"Current summary:\n{prefix_summary}\n\n"
+                f"New earlier context:\n{discarded_text}"
+            )
+        else:
+            summary_prompt = (
+                f"Summarize the following earlier context in {language_name}. Keep it brief and "
+                f"useful for continuing the translation. Preserve key entities, terminology, "
+                f"numbers, and unresolved references. Return only the summary.\n\n"
+                f"Earlier context:\n{discarded_text}"
+            )
+        new_summary = summarize_text(
+            summary_prompt,
+            self.summary_max_new_tokens,
+        ).strip()
+        return new_summary or prefix_summary
+
+
+class SummaryFixedWordsTextHistory(FixedWordsTextHistory, _SummaryPrefixTextHistory):
+    """
+    Fixed-words text-history selector plus a DOA-only running summary prefix.
+
+    Config attributes
+    -----------------
+    history_words : int
+        Number of recent raw words to retain for StreamAtt alignment.
+    summary_max_new_tokens : int
+        Maximum tokens used when updating the running summary.
+    """
+
+    def __init__(self, config: SimpleNamespace, bow_prefix: str):
+        FixedWordsTextHistory.__init__(self, config, bow_prefix)
+        _SummaryPrefixTextHistory.__init__(self, config, bow_prefix)
+
+
+class SummaryPunctuationTextHistory(PunctuationTextHistory, _SummaryPrefixTextHistory):
+    """
+    Punctuation-based text-history selector plus a DOA-only running summary prefix.
+
+    The raw retained history still follows the punctuation selector, while the
+    discarded older context is compressed into a running summary for the next
+    decoder-only prompt.
+    """
+
+    def __init__(self, config: SimpleNamespace, bow_prefix: str):
+        PunctuationTextHistory.__init__(self, config, bow_prefix)
+        _SummaryPrefixTextHistory.__init__(self, config, bow_prefix)

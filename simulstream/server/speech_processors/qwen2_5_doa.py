@@ -113,7 +113,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             },
         ]
 
-        prefix = "".join(self.text_history) if self.text_history else ""
+        prefix = self.build_text_prefix()
         if prefix:
             conversation.append({
                 "role": "assistant",
@@ -138,6 +138,38 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             padding=True,
             use_audio_in_video=True,
         ).to(self.device)
+
+    def summarize_text(self, prompt: str, max_new_tokens: int) -> str:
+        conversation = [
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": self.SYSTEM_PROMPT}],
+            },
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": prompt}],
+            },
+        ]
+        summary_prompt = self.processor.apply_chat_template(
+            conversation,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        inputs = self.processor(
+            text=summary_prompt,
+            return_tensors="pt",
+            padding=True,
+        ).to(self.device)
+        output = self.model.generate(
+            **inputs,
+            return_audio=False,
+            thinker_max_new_tokens=max_new_tokens,
+            thinker_do_sample=False,
+        )
+        if isinstance(output, tuple):
+            output = output[0]
+        new_ids = output[:, inputs["input_ids"].shape[1]:]
+        return self.processor.tokenizer.decode(new_ids[0], skip_special_tokens=True).strip()
 
     def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
         audio_positions = (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
