@@ -68,7 +68,6 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         text_history_cls = class_load(self.text_history_config.type)
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
-        self.prefix_token_count = 0
         self.use_video =  getattr(self.config, "use_video", False)
         self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.05)
         self.temperature = getattr(self.config, "temperature", 1.0)
@@ -120,24 +119,11 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             tokenize=False,
         )
         prefix = self.build_text_prefix()
-        full_prompt = f"{prompt}{prefix}"
-        if prefix:
-            prompt_ids = self.processor.tokenizer(
-                prompt,
-                add_special_tokens=False,
-            )["input_ids"]
-            full_prompt_ids = self.processor.tokenizer(
-                full_prompt,
-                add_special_tokens=False,
-            )["input_ids"]
-            self.prefix_token_count = max(0, len(full_prompt_ids) - len(prompt_ids))
-        else:
-            self.prefix_token_count = 0
 
         audios, images, videos = process_mm_info(conversation, use_audio_in_video=True)
 
         return self.processor(
-            text=full_prompt,
+            text=f"{prompt}{prefix}",
             audio=audios,
             images=images,
             videos=videos,
@@ -232,7 +218,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         ]
 
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
-        prefix_len = self.prefix_token_count
+        prefix_len = len(self.text_history) if self.text_history else 0
         if prefix_len > 0:
             prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
         else:
@@ -254,7 +240,3 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
 
     def tokens_to_string(self, tokens: List[str]) -> str:
         return "".join(tokens)
-
-    def clear(self) -> None:
-        super().clear()
-        self.prefix_token_count = 0
