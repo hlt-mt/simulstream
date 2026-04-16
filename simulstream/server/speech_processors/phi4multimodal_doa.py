@@ -67,12 +67,25 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
     def build_prompt(self) -> str:
         filled_prompt = f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
-        prefix = self.build_text_prefix()
-        prompt = (
-            f"{self._USER_START}{self._AUDIO_TOKEN}"
-            f"{filled_prompt}{self._END_TOKEN}"
-            f"{self._ASST_START}{prefix}"
-        )
+        summary = self.prefix_summary.strip() if self.prefix_summary else ""
+        raw_prefix = "".join(self.text_history) if self.text_history else ""
+
+        if summary:
+            # Place the summary as context in the user turn so the model does not
+            # interpret it as tokens it has already generated, which would cause it
+            # to emit EOS immediately and produce no new output.
+            prompt = (
+                f"{self._USER_START}{self._AUDIO_TOKEN}"
+                f"Context of what was translated so far: {summary}\n\n"
+                f"{filled_prompt}{self._END_TOKEN}"
+                f"{self._ASST_START}{raw_prefix}"
+            )
+        else:
+            prompt = (
+                f"{self._USER_START}{self._AUDIO_TOKEN}"
+                f"{filled_prompt}{self._END_TOKEN}"
+                f"{self._ASST_START}{raw_prefix}"
+            )
         return prompt
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
