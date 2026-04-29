@@ -23,7 +23,7 @@ from dataclasses import replace
 import copy
 
 from simulstream.server.speech_processors import SAMPLE_RATE
-from simulstream.server.speech_processors.base_streamatt import BaseStreamAtt, BOW_PREFIX
+from simulstream.server.speech_processors.base_streamatt import BaseStreamAtt
 
 from nemo.collections.asr.models import ASRModel
 from nemo.collections.asr.parts.submodules.multitask_decoding import (
@@ -44,7 +44,7 @@ class CanaryStreamAtt(BaseStreamAtt):
     StreamAtt policy implementation for NVIDIA's Canary-v2 model
 
     Args:
-        config (SimpleNamespace): Configuration object.  
+        config (SimpleNamespace): Configuration object.
             Supported attributes:
             - **pnc (str)**: ``"yes"`` for punctuation/capitalisation, ``"no"`` otherwise.
               Defaults to ``"yes"``.
@@ -57,8 +57,7 @@ class CanaryStreamAtt(BaseStreamAtt):
         self.use_raw_audio_history = True
         self.mel_hop_samples = MEL_HOP_SAMPLES
         self.audio_subsampling_factor = CANARY_AUDIO_SUBSAMPLING
-        self._pnc: str = getattr(self.config, "pnc", "yes")
-        self._audio_history_max_duration: int = getattr(self.config, "audio_history_max_duration", 30)
+        self._audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 30)
 
         # Build the transcription config, which is reused for every transcribe() call.
         self.transcription_cfg = MultiTaskTranscriptionConfig(
@@ -105,7 +104,6 @@ class CanaryStreamAtt(BaseStreamAtt):
         default_slots = copy.deepcopy(default_turns[0]["slots"])
         default_slots["source_lang"] = self.src_lang
         default_slots["target_lang"] = self.tgt_lang
-        default_slots["pnc"] = self._pnc
 
         turns = [
             {

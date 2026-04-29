@@ -62,8 +62,8 @@ class BaseStreamAtt(BaseSpeechProcessor):
              Defaults to 1.
            - **mel_hop_samples (int)**: Number of raw waveform samples per mel frame.
              Defaults to 1.
-           - **use_raw_audio_history (bool)**: Returns whether ``audio_history`` stores raw waveform samples
-             rather than processed frames. Defaults to False.
+           - **use_raw_audio_history (bool)**: Returns whether ``audio_history`` stores raw
+             waveform samples rather than processed frames. Defaults to False.
            - **text_history_max_len (int)**: The maximum length of the textual history after which
              the current content is cut. Defaults to 128.
            - **cross_attention_layer (int)**: Layer from which to extract the cross-attention from.
