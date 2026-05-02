@@ -9,5 +9,6 @@ cross_attn_layer: -2
 cutoff_frame_num: 8
 num_beams: 5
 audio_history_max_duration: 160  # Maximum length for the audio buffer, in seconds
+mel_hop_samples: 160  # Number of audio samples between adjacent mel frames
 text_history_max_len: 128
 word_level_postprocess: True  # Disable if character-level language

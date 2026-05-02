@@ -31,12 +31,10 @@ from nemo.collections.asr.parts.submodules.multitask_decoding import (
 )
 from nemo.collections.asr.models.aed_multitask_models import (
     MultiTaskTranscriptionConfig,
+    parse_multitask_prompt,
 )
 
 logger = logging.getLogger(__name__)
-
-MEL_HOP_SAMPLES = 160
-CANARY_AUDIO_SUBSAMPLING = 8
 
 
 class CanaryStreamAtt(BaseStreamAtt):
@@ -46,18 +44,27 @@ class CanaryStreamAtt(BaseStreamAtt):
     Args:
         config (SimpleNamespace): Configuration object.
             Supported attributes:
-            - **pnc (str)**: ``"yes"`` for punctuation/capitalisation, ``"no"`` otherwise.
-              Defaults to ``"yes"``.
             - **audio_history_max_duration (int)**: Maximum audio history in seconds.
               Defaults to ``30``.
+            - **num_beams (int)**: Number of beams to use for beam search decoding.
+              Defaults to ``5``.
     """
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
         self.use_raw_audio_history = True
-        self.mel_hop_samples = MEL_HOP_SAMPLES
-        self.audio_subsampling_factor = CANARY_AUDIO_SUBSAMPLING
+        self.mel_hop_samples = getattr(self.config, "mel_hop_samples", 160)
+        self.audio_subsampling_factor = getattr(self.config, "audio_subsampling_factor", 8)
         self._audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 30)
+
+        expected_mel_hop_samples = (
+            self.model.cfg.preprocessor.window_stride * self.model.cfg.preprocessor.sample_rate
+        )
+
+        assert self.mel_hop_samples == expected_mel_hop_samples, (
+            f"mel_hop_samples is set to {self.mel_hop_samples} in the config, but the loaded "
+            f"model's preprocessor uses {expected_mel_hop_samples} samples per mel frame"
+        )
 
         # Build the transcription config, which is reused for every transcribe() call.
         self.transcription_cfg = MultiTaskTranscriptionConfig(
@@ -117,7 +124,12 @@ class CanaryStreamAtt(BaseStreamAtt):
             },
         ]
 
-        return replace(self.transcription_cfg, prompt={"turns": turns})
+        cfg_copy = copy.deepcopy(self.transcription_cfg)
+        cfg_copy.prompt = turns
+
+        logger.info(f"{self.model.tokenizer.tokens_to_text(self.text_history)=}")
+
+        return cfg_copy
 
     def _remove_eos_tokens(self, token_ids: List[int]) -> List[int]:
         """Strip leading EOS tokens that the model may prepend when a forced prefix is used."""
@@ -135,11 +147,12 @@ class CanaryStreamAtt(BaseStreamAtt):
         Returns:
             np.ndarray: Accumulated raw audio history.
         """
+        waveform = waveform.astype(np.float32)
         if self.audio_history is None:
-            self.audio_history = waveform.astype(np.float32)
+            self.audio_history = waveform
         else:
             self.audio_history = np.concatenate(
-                [self.audio_history, waveform.astype(np.float32)])
+                [self.audio_history, waveform])
 
         return self.audio_history
 
@@ -153,10 +166,10 @@ class CanaryStreamAtt(BaseStreamAtt):
 
         token_ids = hypothesis.y_sequence.detach().cpu().tolist()
         token_ids = self._remove_eos_tokens(token_ids)
-        tokens: List[str] = self.model.tokenizer.ids_to_tokens(token_ids)
+        tokens = self.model.tokenizer.ids_to_tokens(token_ids)
 
         xatt_raw = hypothesis.xatt_scores[self.cross_attn_layer]
-        xatt = xatt_raw.mean(dim=0).cpu()
+        xatt = xatt_raw.mean(dim=0).cpu()  # we average over heads
         xatt = self.normalize_attn(xatt)
 
         return tokens, xatt

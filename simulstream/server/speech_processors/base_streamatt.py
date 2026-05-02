@@ -81,8 +81,11 @@ class BaseStreamAtt(BaseSpeechProcessor):
         text_history_cls = class_load(text_history_config.type)
         self.text_history_method = text_history_cls(text_history_config)
         self.audio_subsampling_factor = getattr(self.config, "audio_subsampling_factor", 1)
-        self.mel_hop_samples = getattr(self.config, "mel_hop_samples", 1)
+        self.mel_hop_samples = getattr(self.config, "mel_hop_samples", 160)
         self.use_raw_audio_history = getattr(self.config, "use_raw_audio_history", False)
+        self.frames_to_audio_history = self.audio_subsampling_factor
+        if self.use_raw_audio_history:
+            self.frames_to_audio_history *= self.mel_hop_samples
         self.text_history_max_len = getattr(self.config, "text_history_max_len", 128)
         self.cross_attn_layer = getattr(self.config, "cross_attention_layer", 3)
         self.cutoff_frame_num = getattr(self.config, "cutoff_frame_num", 2)
@@ -179,12 +182,8 @@ class BaseStreamAtt(BaseSpeechProcessor):
             # Only one token: use the unique most attended frame
             earliest_attended_idx = most_attended_idxs[0]
 
-        # Multiply by the subsampling factor to recover the original number of frames
-        frames_to_cut = earliest_attended_idx * self.audio_subsampling_factor
-
-        # If audio is stored as raw waveform, convert frames to cut into number of samples to cut
-        if self.use_raw_audio_history:
-            frames_to_cut = frames_to_cut * self.mel_hop_samples
+        # Multiply by the number of frames/samples corresponding to the audio history
+        frames_to_cut = earliest_attended_idx * self.frames_to_audio_history
 
         # Cut the unattended audio features
         self.audio_history = self.audio_history[frames_to_cut:]
