@@ -19,7 +19,6 @@ import numpy as np
 from types import SimpleNamespace
 from typing import List, Tuple
 
-from dataclasses import replace
 import copy
 
 from simulstream.server.speech_processors import SAMPLE_RATE
@@ -31,7 +30,6 @@ from nemo.collections.asr.parts.submodules.multitask_decoding import (
 )
 from nemo.collections.asr.models.aed_multitask_models import (
     MultiTaskTranscriptionConfig,
-    parse_multitask_prompt,
 )
 
 logger = logging.getLogger(__name__)
