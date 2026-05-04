@@ -50,9 +50,6 @@ class CanaryStreamAtt(BaseStreamAtt):
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
-        self.use_raw_audio_history = True
-        self.mel_hop_samples = getattr(self.config, "mel_hop_samples", 160)
-        self.audio_subsampling_factor = getattr(self.config, "audio_subsampling_factor", 8)
         self._audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 30)
 
         expected_mel_hop_samples = (
@@ -124,8 +121,6 @@ class CanaryStreamAtt(BaseStreamAtt):
 
         cfg_copy = copy.deepcopy(self.transcription_cfg)
         cfg_copy.prompt = turns
-
-        logger.info(f"{self.model.tokenizer.tokens_to_text(self.text_history)=}")
 
         return cfg_copy
 

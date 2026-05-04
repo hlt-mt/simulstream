@@ -61,7 +61,7 @@ class BaseStreamAtt(BaseSpeechProcessor):
            - **audio_subsampling_factor (int)**: Subsampling factor of the model, if any.
              Defaults to 1.
            - **mel_hop_samples (int)**: Number of raw waveform samples per mel frame.
-             Defaults to 1.
+             Defaults to 160, i.e. 10ms at 16kHz.
            - **use_raw_audio_history (bool)**: Returns whether ``audio_history`` stores raw
              waveform samples rather than processed frames. Defaults to False.
            - **text_history_max_len (int)**: The maximum length of the textual history after which
