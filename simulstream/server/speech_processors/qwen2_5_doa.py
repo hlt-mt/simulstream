@@ -103,10 +103,10 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         prompt_text = self.build_prompt()
         if summary:
             prompt_text = (
-                f"Previous translated context summary in {LANG_MAPPER[self.tgt_lang]}: "
+                f"Background memory from earlier translated audio in {LANG_MAPPER[self.tgt_lang]}: "
                 f"{summary}\n"
-                f"Use this only as context for continuation. Do not repeat or paraphrase the "
-                f"summary.\n\n"
+                f"Continue the existing translation in {LANG_MAPPER[self.tgt_lang]}. "
+                f"Output only the next continuation.\n\n"
                 f"{prompt_text}"
             )
 

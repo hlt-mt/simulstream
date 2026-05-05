@@ -72,6 +72,10 @@ class DecoderOnlyAttention(BaseStreamAtt):
             Extra option used only by summary-capable text-history classes.
             Maximum tokens generated when updating the running summary.
             Default: ``64``.
+        text_history.summary_source_max_tokens : int
+            Maximum number of discarded raw text tokens to keep as source for
+            regenerating the summary from scratch.
+            Default: ``256``.
     """
 
     def __init__(self, config: SimpleNamespace):
@@ -82,6 +86,7 @@ class DecoderOnlyAttention(BaseStreamAtt):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
         self.prefix_summary = ""
+        self.summary_source_tokens = []
 
     @property
     def audio_max_len(self) -> int:
@@ -169,9 +174,16 @@ class DecoderOnlyAttention(BaseStreamAtt):
         discarded_text = super()._update_text_history(new_output)
         update_prefix_summary = getattr(self.text_history_method, "update_prefix_summary", None)
         if discarded_text > 0 and update_prefix_summary is not None:
+            self.summary_source_tokens.extend(current_history[:discarded_text])
+            trim_summary_source_tokens = getattr(
+                self.text_history_method,
+                "trim_summary_source_tokens",
+                None,
+            )
+            if trim_summary_source_tokens is not None:
+                self.summary_source_tokens = trim_summary_source_tokens(self.summary_source_tokens)
             self.prefix_summary = update_prefix_summary(
-                discarded_tokens=current_history[:discarded_text],
-                prefix_summary=self.prefix_summary,
+                summary_tokens=self.summary_source_tokens,
                 tokens_to_string=self.tokens_to_string,
                 summarize_text=self.summarize_text,
                 language_name=self._summary_language_name(),
@@ -205,42 +217,51 @@ class DecoderOnlyAttention(BaseStreamAtt):
     def clear(self) -> None:
         super().clear()
         self.prefix_summary = ""
+        self.summary_source_tokens = []
 
 
 class _SummaryPrefixTextHistory:
+    """
+    Base Summary text-history selector.
+
+    Config attributes
+    -----------------
+    summary_max_new_tokens : int
+        Maximum tokens used when updating the running summary.
+    summary_source_max_tokens : int
+        Maximum number of discarded raw text tokens kept as summary source.
+    """
+
     def __init__(self, config: SimpleNamespace, _bow_prefix: str):
         self.summary_max_new_tokens = getattr(config, "summary_max_new_tokens", 64)
+        self.summary_source_max_tokens = getattr(config, "summary_source_max_tokens", 256)
+
+    def trim_summary_source_tokens(self, summary_tokens: List[str]) -> List[str]:
+        if len(summary_tokens) <= self.summary_source_max_tokens:
+            return summary_tokens
+        return summary_tokens[-self.summary_source_max_tokens:]
 
     def update_prefix_summary(
             self,
-            discarded_tokens: List[str],
-            prefix_summary: str,
+            summary_tokens: List[str],
             tokens_to_string,
             summarize_text,
             language_name: str) -> str:
-        discarded_text = tokens_to_string(discarded_tokens).strip()
+        discarded_text = tokens_to_string(summary_tokens).strip()
         if not discarded_text:
-            return prefix_summary
-        if prefix_summary:
-            summary_prompt = (
-                f"Update this running summary in {language_name}. Keep it brief and useful for "
-                f"continuing the translation. Preserve key entities, terminology, numbers, and "
-                f"unresolved references. Return only the updated summary.\n\n"
-                f"Current summary:\n{prefix_summary}\n\n"
-                f"New earlier context:\n{discarded_text}"
-            )
-        else:
-            summary_prompt = (
-                f"Summarize the following earlier context in {language_name}. Keep it brief and "
-                f"useful for continuing the translation. Preserve key entities, terminology, "
-                f"numbers, and unresolved references. Return only the summary.\n\n"
-                f"Earlier context:\n{discarded_text}"
-            )
+            return ""
+        summary_prompt = (
+            f"Summarize the following earlier translated context in {language_name}. "
+            f"Return short memory notes useful for continuing the translation. Preserve key "
+            f"entities, terminology, abbreviations, numbers, and unresolved references. "
+            f"Prefer concise notes over full prose. Return only the memory notes.\n\n"
+            f"Earlier translated context:\n{discarded_text}"
+        )
         new_summary = summarize_text(
             summary_prompt,
             self.summary_max_new_tokens,
         ).strip()
-        return new_summary or prefix_summary
+        return new_summary
 
 
 class SummaryFixedWordsTextHistory(FixedWordsTextHistory, _SummaryPrefixTextHistory):
@@ -251,8 +272,6 @@ class SummaryFixedWordsTextHistory(FixedWordsTextHistory, _SummaryPrefixTextHist
     -----------------
     history_words : int
         Number of recent raw words to retain for StreamAtt alignment.
-    summary_max_new_tokens : int
-        Maximum tokens used when updating the running summary.
     """
 
     def __init__(self, config: SimpleNamespace, bow_prefix: str):

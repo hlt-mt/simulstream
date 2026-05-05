@@ -71,10 +71,10 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         raw_prefix = self.build_raw_text_prefix()
         if summary:
             filled_prompt = (
-                f"Previous translated context summary in {LANG_MAPPER[self.tgt_lang]}: "
+                f"Background memory from earlier translated audio in {LANG_MAPPER[self.tgt_lang]}: "
                 f"{summary}\n"
-                f"Use this only as context for continuation. Do not repeat or paraphrase the "
-                f"summary.\n\n"
+                f"Continue the existing translation in {LANG_MAPPER[self.tgt_lang]}. "
+                f"Output only the next continuation.\n\n"
                 f"{filled_prompt}"
             )
         prompt = (
