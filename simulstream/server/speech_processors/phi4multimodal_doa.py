@@ -145,16 +145,10 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
         # Decode newly generated tokens only ──────────────────────────────────────────────────────
         new_ids = output.sequences[:, input_len:]  # (1, n_new)
-        eos_id = self.generation_config.eos_token_id
-        eos_ids = {eos_id} if isinstance(eos_id, int) else set(eos_id or [])
-        truncated_ids = []
-        for t in new_ids[0]:
-            if t.item() in eos_ids:
-                break
-            truncated_ids.append(t)
-        new_tokens = self.processor.tokenizer.convert_ids_to_tokens(
-            truncated_ids, skip_special_tokens=True
-        ) if truncated_ids else []
+        new_tokens = [
+            self.processor.tokenizer.decode([t], skip_special_tokens=True)
+            for t in new_ids[0]
+        ]
 
         # Build proxy cross-attention for the hypothesis (prefix + new_tokens) ────────────────────
         # Prefix rows from the prefill pass
@@ -169,13 +163,12 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
         # The prefill pass predicts the first generated token, so we use the last prompt row
         # as its proxy audio-attention. Subsequent generated tokens come from later decode steps.
-        n_new = len(truncated_ids)
-        first_new_row = prefill_attn[-1:, audio_positions] if n_new > 0 else \
+        first_new_row = prefill_attn[-1:, audio_positions] if len(new_tokens) > 0 else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
         new_rows = [
             self.mean_attn_over_heads_and_selected_layers(step_attn)
             .squeeze(0)[audio_positions]  # (audio_len,)
-            for step_attn in output.attentions[1:n_new + 1]
+            for step_attn in output.attentions[1:]
         ]
         subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
@@ -188,4 +181,4 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
 
     def tokens_to_string(self, tokens: List[str]) -> str:
-        return self.processor.tokenizer.convert_tokens_to_string(tokens)
+        return "".join(tokens)
