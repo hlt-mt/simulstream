@@ -1,7 +1,7 @@
 type: "simulstream.server.speech_processors.phi4multimodal_doa.Phi4MultimodalDOA"
 text_history:
   type: "simulstream.server.speech_processors.base_doa.SummaryPunctuationTextHistory"
-  summary_max_new_tokens: 64
+  summary_max_new_tokens: 32
 audio_history_max_duration: 180  # Maximum length for the audio buffer, in seconds
 text_history_max_len: 128
 speech_chunk_size: 1  # seconds
