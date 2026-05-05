@@ -99,6 +99,17 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         )
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
+        summary = self.build_summary_context()
+        prompt_text = self.build_prompt()
+        if summary:
+            prompt_text = (
+                f"Previous translated context summary in {LANG_MAPPER[self.tgt_lang]}: "
+                f"{summary}\n"
+                f"Use this only as context for continuation. Do not repeat or paraphrase the "
+                f"summary.\n\n"
+                f"{prompt_text}"
+            )
+
         conversation = [
             {
                 "role": "system",
@@ -108,7 +119,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
                 "role": "user",
                 "content": [
                     {"type": "audio", "audio": waveform},
-                    {"type": "text", "text": self.build_prompt()},
+                    {"type": "text", "text": prompt_text},
                 ],
             },
         ]
@@ -118,7 +129,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             add_generation_prompt=True,
             tokenize=False,
         )
-        prefix = self.build_text_prefix()
+        prefix = self.build_raw_text_prefix()
 
         audios, images, videos = process_mm_info(conversation, use_audio_in_video=True)
 

@@ -80,7 +80,7 @@ class DecoderOnlyAttention(BaseStreamAtt):
         self.average_attn_over_layers = getattr(self.config, "average_attn_over_layers", False)
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.max_new_tokens = getattr(self.config, "max_new_tokens", 64)
+        self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
         self.prefix_summary = ""
 
     @property
@@ -154,12 +154,14 @@ class DecoderOnlyAttention(BaseStreamAtt):
             return LANG_MAPPER.get(self.src_lang, self.src_lang)
         return "the same language as the context"
 
-    def build_text_prefix(self) -> str:
-        raw_prefix = "".join(self.text_history) if self.text_history else ""
-        build_text_prefix = getattr(self.text_history_method, "build_text_prefix", None)
-        if build_text_prefix is None:
-            return raw_prefix
-        return build_text_prefix(raw_prefix, self.prefix_summary)
+    def build_raw_text_prefix(self) -> str:
+        return "".join(self.text_history) if self.text_history else ""
+
+    def build_summary_context(self) -> str:
+        update_prefix_summary = getattr(self.text_history_method, "update_prefix_summary", None)
+        if update_prefix_summary is None:
+            return ""
+        return self.prefix_summary.strip()
 
     def _update_text_history(self, new_output: List[str]) -> int:
         previous_history = list(self.text_history) if self.text_history else []
@@ -206,18 +208,8 @@ class DecoderOnlyAttention(BaseStreamAtt):
 
 
 class _SummaryPrefixTextHistory:
-    STRONG_PUNCTUATION = [".", "!", "?", ":", ";", "。"]
-
     def __init__(self, config: SimpleNamespace, _bow_prefix: str):
-        self.summary_max_new_tokens = getattr(config, "summary_max_new_tokens", 32)
-
-    def build_text_prefix(self, raw_prefix: str, prefix_summary: str) -> str:
-        if not prefix_summary:
-            return raw_prefix
-        prefix_summary = prefix_summary.strip()
-        if prefix_summary and not prefix_summary.endswith(tuple(self.STRONG_PUNCTUATION)):
-            prefix_summary = f"{prefix_summary}."
-        return f"{prefix_summary} {raw_prefix}" if raw_prefix else f"{prefix_summary} "
+        self.summary_max_new_tokens = getattr(config, "summary_max_new_tokens", 64)
 
     def update_prefix_summary(
             self,
