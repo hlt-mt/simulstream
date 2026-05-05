@@ -124,15 +124,6 @@ class CanaryStreamAtt(BaseStreamAtt):
 
         return cfg_copy
 
-    def _remove_eos_tokens(self, token_ids: List[int]) -> List[int]:
-        """Strip leading EOS tokens that the model may prepend when a forced prefix is used."""
-        if not token_ids:
-            return token_ids
-        pos = 0
-        while pos < len(token_ids) and token_ids[pos] == self.model.tokenizer.eos_id:
-            pos += 1
-        return token_ids[pos:]
-
     def _preprocess(self, waveform: np.ndarray) -> np.ndarray:
         """
         Append the incoming waveform chunk to the raw audio history and return it.
@@ -158,7 +149,6 @@ class CanaryStreamAtt(BaseStreamAtt):
         hypothesis = output[0]
 
         token_ids = hypothesis.y_sequence.detach().cpu().tolist()
-        token_ids = self._remove_eos_tokens(token_ids)
         tokens = self.model.tokenizer.ids_to_tokens(token_ids)
 
         xatt_raw = hypothesis.xatt_scores[self.cross_attn_layer]
