@@ -14,9 +14,9 @@
 
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 import torch
 import numpy as np
+from typing import Dict, List, Tuple, Union
 
 
 from simulstream.server.speech_processors.base_streamatt import (
@@ -117,12 +117,15 @@ class TestUpdateSpeechHistory(unittest.TestCase):
 
     def test_update_speech_history_trims_audio_with_raw_audio(self):
         audio_hist = self._run_update_speech_history(use_raw_audio_history=True)
-        # 2 audio token discarded, subsampling factor is 2, num mel hop is 2, so 2*2*2=8 samples removed 
+        # 2 audio token discarded, subsampling factor is 2,
+        # num mel hop is 2, so 2*2*2=8 samples removed
         self.assertListEqual(audio_hist, list(np.arange(8, 40, dtype=np.float32)))
 
     def test_update_speech_history_trims_audio(self):
         audio_hist = self._run_update_speech_history(use_raw_audio_history=False)
-        # 2 audio token discarded, subsampling factor is 2, so 2*2=4 samples removed 
+        # 2 audio token discarded, subsampling factor is 2, so 2*2=4 samples removed
         self.assertListEqual(audio_hist, list(np.arange(4, 40, dtype=np.float32)))
+
+
 if __name__ == "__main__":
     unittest.main()
