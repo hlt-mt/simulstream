@@ -67,34 +67,62 @@ class TestPunctuationTextHistory(unittest.TestCase):
         self.assertEqual(selected_history, ['回', '到', '纽', '约', '后', '，', '我'])
 
 
-def _make_mock(text_history, audio_history, frames_to_audio_history, audio_max_len=100_000):
-    proc = MagicMock()
-    proc.text_history = text_history
-    proc.audio_history = audio_history
-    proc.frames_to_audio_history = frames_to_audio_history
-    proc.audio_max_len = audio_max_len
-    proc._cut_audio_exceeding_maxlen.side_effect = \
-        lambda: BaseStreamAtt._cut_audio_exceeding_maxlen(proc)
-    return proc
+class FakeStreamAtt(BaseStreamAtt):
 
+    def _preprocess(self, waveform: np.float32) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        raise NotImplementedError("_preprocess not implemented in FakeStreamAtt")
 
-def _cross_attn(n_text_tokens, n_audio_frames, earliest_attended_frame, discarded_text=0):
-    attn = torch.zeros(discarded_text + n_text_tokens, n_audio_frames)
-    for i in range(discarded_text, discarded_text + n_text_tokens):
-        attn[i, earliest_attended_frame] = 1.0
-    return attn
+    @classmethod
+    def load_model(cls, config: SimpleNamespace):
+        raise NotImplementedError("load_model not implemented in FakeStreamAtt")
+
+    def set_source_language(self, language: str) -> None:
+        pass
+
+    def set_target_language(self, language: str) -> None:
+        pass
+
+    def tokens_to_string(self, tokens: List[str]) -> str:
+        return " ".join(tokens)
+
+    def _generate(self, speech: torch.Tensor) -> Tuple[List[str], torch.Tensor]:
+        raise NotImplementedError("_generate not implemented in FakeStreamAtt")
+
+    @property
+    def audio_max_len(self) -> float:
+        return 10000
 
 
 class TestUpdateSpeechHistory(unittest.TestCase):
-    def test_trim_audio_history(self):
-        """ Test that audio history is trimmed correctly """
+    def _run_update_speech_history(self, use_raw_audio_history):
+        config = SimpleNamespace(
+            use_raw_audio_history=use_raw_audio_history,
+            audio_subsampling_factor=2,
+            mel_hop_samples=2,
+            text_history=SimpleNamespace(
+                type="simulstream.server.speech_processors.base_streamatt.FixedWordsTextHistory",
+            )
+
+        )
         audio = np.arange(40, dtype=np.float32)
-        proc = _make_mock(["▁hello"], audio.copy(), frames_to_audio_history=4)
-        attn = _cross_attn(
-            n_text_tokens=1, n_audio_frames=10, earliest_attended_frame=2, discarded_text=1)
-        BaseStreamAtt._update_speech_history(proc, discarded_text=1, cross_attn=attn)
-        np.testing.assert_array_equal(proc.audio_history, audio[8:])
+        proc = FakeStreamAtt(config)
+        proc.text_history = ["▁hello"]
+        proc.audio_history = audio.copy()
 
+        attn = torch.zeros(2, 10)
+        attn[1, 2] = 1.0
 
+        proc._update_speech_history(discarded_text=1, cross_attn=attn)
+        return proc.audio_history.tolist()
+
+    def test_update_speech_history_trims_audio_with_raw_audio(self):
+        audio_hist = self._run_update_speech_history(use_raw_audio_history=True)
+        # 2 audio token discarded, subsampling factor is 2, num mel hop is 2, so 2*2*2=8 samples removed 
+        self.assertListEqual(audio_hist, list(np.arange(8, 40, dtype=np.float32)))
+
+    def test_update_speech_history_trims_audio(self):
+        audio_hist = self._run_update_speech_history(use_raw_audio_history=False)
+        # 2 audio token discarded, subsampling factor is 2, so 2*2=4 samples removed 
+        self.assertListEqual(audio_hist, list(np.arange(4, 40, dtype=np.float32)))
 if __name__ == "__main__":
     unittest.main()
