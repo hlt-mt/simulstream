@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 class CanaryStreamAtt(BaseStreamAtt):
     """
-    StreamAtt policy implementation for NVIDIA's Canary-v2 model
+    StreamAtt policy implementation for NVIDIA's Canary-v2 model.
 
     Args:
         config (SimpleNamespace): Configuration object.
