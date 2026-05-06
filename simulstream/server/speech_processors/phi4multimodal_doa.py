@@ -67,14 +67,15 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
     def build_prompt(self) -> str:
         filled_prompt = f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
-        summary = self.build_summary_context()
+        memory = self.build_memory_context()
         raw_prefix = self.build_raw_text_prefix()
-        if summary:
+        if memory:
             filled_prompt = (
-                f"Background memory from earlier translated audio in {LANG_MAPPER[self.tgt_lang]}: "
-                f"{summary}\n"
-                f"Continue the existing translation in {LANG_MAPPER[self.tgt_lang]}. "
-                f"Output only the next continuation.\n\n"
+                f"Reference memory from earlier translated audio in "
+                f"{LANG_MAPPER[self.tgt_lang]}: {memory}\n"
+                f"Use this memory only to keep entities, terminology, abbreviations, numbers, "
+                f"and unresolved references consistent while continuing the translation. Output "
+                f"only the next continuation.\n\n"
                 f"{filled_prompt}"
             )
         prompt = (
@@ -91,7 +92,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             return_tensors="pt",
         ).to(self.device)
 
-    def summarize_text(self, prompt: str, max_new_tokens: int) -> str:
+    def generate_text_completion(self, prompt: str, max_new_tokens: int) -> str:
         inputs = self.processor(
             text=f"{self._USER_START}{prompt}{self._END_TOKEN}{self._ASST_START}",
             return_tensors="pt",

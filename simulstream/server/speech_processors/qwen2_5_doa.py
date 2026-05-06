@@ -99,14 +99,15 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         )
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
-        summary = self.build_summary_context()
+        memory = self.build_memory_context()
         prompt_text = self.build_prompt()
-        if summary:
+        if memory:
             prompt_text = (
-                f"Background memory from earlier translated audio in {LANG_MAPPER[self.tgt_lang]}: "
-                f"{summary}\n"
-                f"Continue the existing translation in {LANG_MAPPER[self.tgt_lang]}. "
-                f"Output only the next continuation.\n\n"
+                f"Reference memory from earlier translated audio in "
+                f"{LANG_MAPPER[self.tgt_lang]}: {memory}\n"
+                f"Use this memory only to keep entities, terminology, abbreviations, numbers, "
+                f"and unresolved references consistent while continuing the translation. Output "
+                f"only the next continuation.\n\n"
                 f"{prompt_text}"
             )
 
@@ -144,7 +145,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             use_audio_in_video=True,
         ).to(self.device)
 
-    def summarize_text(self, prompt: str, max_new_tokens: int) -> str:
+    def generate_text_completion(self, prompt: str, max_new_tokens: int) -> str:
         conversation = [
             {
                 "role": "system",
@@ -155,13 +156,13 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
                 "content": [{"type": "text", "text": prompt}],
             },
         ]
-        summary_prompt = self.processor.apply_chat_template(
+        text_prompt = self.processor.apply_chat_template(
             conversation,
             add_generation_prompt=True,
             tokenize=False,
         )
         inputs = self.processor(
-            text=summary_prompt,
+            text=text_prompt,
             return_tensors="pt",
             padding=True,
         ).to(self.device)
