@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-import logging
 import torch
 import numpy as np
 
@@ -31,8 +30,6 @@ from nemo.collections.asr.parts.submodules.multitask_decoding import (
 from nemo.collections.asr.models.aed_multitask_models import (
     MultiTaskTranscriptionConfig,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class CanaryStreamAtt(BaseStreamAtt):

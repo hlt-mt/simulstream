@@ -18,7 +18,6 @@ import torch
 import numpy as np
 from typing import Dict, List, Tuple, Union
 
-
 from simulstream.server.speech_processors.base_streamatt import (
     BaseStreamAtt,
     PunctuationTextHistory,
