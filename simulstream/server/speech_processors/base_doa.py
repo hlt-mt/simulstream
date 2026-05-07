@@ -21,11 +21,7 @@ import numpy as np
 import torch
 
 from simulstream.server.speech_processors import SAMPLE_RATE
-from simulstream.server.speech_processors.base_streamatt import (
-    BaseStreamAtt,
-    FixedWordsTextHistory,
-    PunctuationTextHistory,
-)
+from simulstream.server.speech_processors.base_streamatt import BaseStreamAtt
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +73,6 @@ class DecoderOnlyAttention(BaseStreamAtt):
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
-        self.prefix_memory = ""
 
     @property
     def audio_max_len(self) -> int:
@@ -132,49 +127,14 @@ class DecoderOnlyAttention(BaseStreamAtt):
         """Convert a list of decoded tokens to a plain output string."""
         ...
 
-    def generate_text_completion(self, prompt: str, max_new_tokens: int) -> str:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement generate_text_completion()."
-        )
-
     def set_target_language(self, language: str) -> None:
         self.tgt_lang = language
 
     def set_source_language(self, language: str) -> None:
         self.src_lang = language
 
-    def _memory_language_name(self) -> str:
-        if getattr(self, "tgt_lang", None):
-            return LANG_MAPPER.get(self.tgt_lang, self.tgt_lang)
-        if getattr(self, "src_lang", None):
-            return LANG_MAPPER.get(self.src_lang, self.src_lang)
-        return "the same language as the context"
-
     def build_raw_text_prefix(self) -> str:
         return "".join(self.text_history) if self.text_history else ""
-
-    def build_memory_context(self) -> str:
-        update_prefix_memory = getattr(self.text_history_method, "update_prefix_memory", None)
-        if update_prefix_memory is None:
-            return ""
-        return self.prefix_memory.strip()
-
-    def _update_text_history(self, new_output: List[str]) -> int:
-        previous_history = list(self.text_history) if self.text_history else []
-        current_history = previous_history + new_output
-        discarded_text = super()._update_text_history(new_output)
-        update_prefix_memory = getattr(self.text_history_method, "update_prefix_memory", None)
-        if discarded_text > 0 and update_prefix_memory is not None:
-            new_memory = update_prefix_memory(
-                prefix_memory=self.prefix_memory,
-                discarded_tokens=current_history[:discarded_text],
-                tokens_to_string=self.tokens_to_string,
-                generate_text_completion=self.generate_text_completion,
-                language_name=self._memory_language_name(),
-            )
-            if new_memory:
-                self.prefix_memory = new_memory
-        return discarded_text
 
     def mean_attn_over_heads_and_selected_layers(self, step_attn) -> torch.Tensor:
         if self.average_attn_over_layers:
@@ -199,85 +159,3 @@ class DecoderOnlyAttention(BaseStreamAtt):
             self.audio_history = self.audio_history[-self.audio_max_len:]
 
         return self.build_processor_inputs(self.audio_history)
-
-    def clear(self) -> None:
-        super().clear()
-        self.prefix_memory = ""
-
-
-class _ReferenceMemoryTextHistory:
-    """
-    Base reference-memory selector.
-
-    The memory is intentionally constrained to literal high-value items rather
-    than free-form summaries, which is usually safer for translation
-    continuation.
-
-    Config attributes
-    -----------------
-    memory_max_new_tokens : int
-        Maximum tokens used when updating the running reference memory.
-    """
-
-    def __init__(self, config: SimpleNamespace, _bow_prefix: str):
-        self.memory_max_new_tokens = getattr(config, "memory_max_new_tokens", 32)
-
-    def update_prefix_memory(
-            self,
-            prefix_memory: str,
-            discarded_tokens: List[str],
-            tokens_to_string,
-            generate_text_completion,
-            language_name: str) -> str:
-        discarded_text = tokens_to_string(discarded_tokens).strip()
-        if not discarded_text:
-            return ""
-
-        if prefix_memory:
-            prompt = (
-                f"Update this compact reference memory in {language_name}. Keep only literal items "
-                f"that help continue the translation consistently. Preserve exact surface forms "
-                f"when possible. Focus on names, organizations, acronyms, technical terms, "
-                f"numbers, dates, titles, quoted phrases, URLs, code-like identifiers, and "
-                f"unresolved references. Avoid prose, paraphrases, and full-sentence summaries. "
-                f"Return only the updated reference memory.\n\n"
-                f"Current reference memory:\n{prefix_memory}\n\n"
-                f"New earlier translated context:\n{discarded_text}"
-            )
-        else:
-            prompt = (
-                f"Extract compact reference memory in {language_name} from the following earlier "
-                f"translated context. Keep only literal items that help continue the translation "
-                f"consistently. Preserve exact surface forms when possible. Focus on names, "
-                f"organizations, acronyms, technical terms, numbers, dates, titles, quoted "
-                f"phrases, URLs, code-like identifiers, and unresolved references. Avoid prose, "
-                f"paraphrases, and full-sentence summaries. Return only the reference memory.\n\n"
-                f"Earlier translated context:\n{discarded_text}"
-            )
-
-        return generate_text_completion(prompt, self.memory_max_new_tokens).strip()
-
-
-class ReferenceMemoryFixedWordsTextHistory(FixedWordsTextHistory, _ReferenceMemoryTextHistory):
-    """
-    Fixed-words text-history selector plus a DOA-only reference memory prefix.
-
-    The raw retained history is still used for StreamAtt alignment, while older
-    discarded text is compressed into a compact list of entities, terms, and
-    numbers for the next decoder-only prompt.
-    """
-
-    def __init__(self, config: SimpleNamespace, bow_prefix: str):
-        FixedWordsTextHistory.__init__(self, config, bow_prefix)
-        _ReferenceMemoryTextHistory.__init__(self, config, bow_prefix)
-
-
-class ReferenceMemoryPunctuationTextHistory(PunctuationTextHistory, _ReferenceMemoryTextHistory):
-    """
-    Punctuation-based text-history selector plus a DOA-only reference memory
-    prefix.
-    """
-
-    def __init__(self, config: SimpleNamespace, bow_prefix: str):
-        PunctuationTextHistory.__init__(self, config, bow_prefix)
-        _ReferenceMemoryTextHistory.__init__(self, config, bow_prefix)

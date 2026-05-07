@@ -67,17 +67,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
     def build_prompt(self) -> str:
         filled_prompt = f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
-        memory = self.build_memory_context()
         raw_prefix = self.build_raw_text_prefix()
-        if memory:
-            filled_prompt = (
-                f"Reference memory from earlier translated audio in "
-                f"{LANG_MAPPER[self.tgt_lang]}: {memory}\n"
-                f"Use this memory only to keep entities, terminology, abbreviations, numbers, "
-                f"and unresolved references consistent while continuing the translation. Output "
-                f"only the next continuation.\n\n"
-                f"{filled_prompt}"
-            )
         prompt = (
             f"{self._USER_START}{self._AUDIO_TOKEN}"
             f"{filled_prompt}{self._END_TOKEN}"
@@ -91,21 +81,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             audios=[(waveform, SAMPLE_RATE)],
             return_tensors="pt",
         ).to(self.device)
-
-    def generate_text_completion(self, prompt: str, max_new_tokens: int) -> str:
-        inputs = self.processor(
-            text=f"{self._USER_START}{prompt}{self._END_TOKEN}{self._ASST_START}",
-            return_tensors="pt",
-        ).to(self.device)
-        output = self.model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            generation_config=self.generation_config,
-            num_logits_to_keep=1,
-            do_sample=False,
-        )
-        new_ids = output[:, inputs["input_ids"].shape[1]:]
-        return self.processor.tokenizer.decode(new_ids[0], skip_special_tokens=True).strip()
 
     def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
         """
