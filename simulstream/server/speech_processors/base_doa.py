@@ -55,6 +55,11 @@ class DecoderOnlyAttention(BaseStreamAtt):
         All fields from :class:`BaseStreamAtt`, plus:
         attn_layer : int
             Layer from which to extract attention scores. Default: ``0``.
+        attn_head : int | None
+            Attention head to use. If ``None``, attention scores are averaged
+            over all heads. If set together with
+            ``average_attn_over_layers=True``, the selected head is averaged
+            across layers. Default: ``None``.
         average_attn_over_layers : bool
             Whether to average attention over all decoder layers instead of
             using the single layer selected by ``attn_layer``.
@@ -64,11 +69,25 @@ class DecoderOnlyAttention(BaseStreamAtt):
             Default: ``180`` (seconds).
         max_new_tokens : int
             Maximum tokens to generate per chunk.  Default: ``32``.
+
+    Supported attention-selection modes
+    -----------------------------------
+    - ``attn_head=None`` and ``average_attn_over_layers=True``:
+      average across layers and heads.
+    - ``attn_head=None`` and ``average_attn_over_layers=False``:
+      average across heads within ``attn_layer``.
+    - ``attn_head=<int>`` and ``average_attn_over_layers=True``:
+      average across layers within the selected head.
+
+    An additional mode is also supported for completeness:
+    - ``attn_head=<int>`` and ``average_attn_over_layers=False``:
+      use the selected head within ``attn_layer``.
     """
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
         self.cross_attn_layer = getattr(self.config, "attn_layer", 0)
+        self.cross_attn_head = getattr(self.config, "attn_head", None)
         self.average_attn_over_layers = getattr(self.config, "average_attn_over_layers", False)
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -136,13 +155,26 @@ class DecoderOnlyAttention(BaseStreamAtt):
     def build_raw_text_prefix(self) -> str:
         return "".join(self.text_history) if self.text_history else ""
 
+    def _select_attn_from_layer(self, layer_attn: torch.Tensor) -> torch.Tensor:
+        if self.cross_attn_head is None:
+            # Default behavior: average over all heads for this layer.
+            return layer_attn[0].mean(dim=0)
+
+        num_heads = layer_attn.shape[1]
+        if self.cross_attn_head < 0 or self.cross_attn_head >= num_heads:
+            raise ValueError(
+                f"Invalid attn_head={self.cross_attn_head}. Layer has {num_heads} heads."
+            )
+        return layer_attn[0, self.cross_attn_head]
+
     def mean_attn_over_heads_and_selected_layers(self, step_attn) -> torch.Tensor:
         if self.average_attn_over_layers:
+            # Average the per-layer attention view selected by _select_attn_from_layer.
             return torch.stack(
-                [layer_attn[0].mean(dim=0) for layer_attn in step_attn],
+                [self._select_attn_from_layer(layer_attn) for layer_attn in step_attn],
                 dim=0,
             ).mean(dim=0)
-        return step_attn[self.cross_attn_layer][0].mean(dim=0)
+        return self._select_attn_from_layer(step_attn[self.cross_attn_layer])
 
     def _preprocess(self, waveform: np.float32) -> dict:
         """

@@ -5,6 +5,7 @@ audio_history_max_duration: 120  # Maximum length for the audio buffer, in secon
 text_history_max_len: 128
 speech_chunk_size: 1  # seconds
 attn_layer: __LAYER__
+attn_head: null  # Optional specific head; null means average over heads
 average_attn_over_layers: True
 cutoff_frame_num: __FRAME__
 detokenizer_type: "hf"
