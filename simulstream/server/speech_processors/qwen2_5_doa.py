@@ -177,18 +177,16 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
             temperature=self.temperature,
+            eos_token_id=[151643, 151645],  # <|endoftext|> and <|im_end|>
         )
         if isinstance(output, tuple):
             output = output[0]
 
         new_ids = output.sequences[:, input_len:]
-        for token_id in new_ids[0].tolist():
-            raw = self.processor.tokenizer.decode([token_id], skip_special_tokens=False)
-            print(f"{token_id}: {repr(raw)}")
-        eos_id = self.processor.tokenizer.eos_token_id
+        stop_ids = {151643, 151645}
         new_tokens = []
         for token_id in new_ids[0]:
-            if token_id.item() == eos_id:
+            if token_id.item() in stop_ids:
                 break
             new_tokens.append(
                 self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
