@@ -58,8 +58,12 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
     AUDIO_START_TOKEN_ID = 151647
     AUDIO_END_TOKEN_ID = 151648
     SYSTEM_PROMPT = (
-        "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
-        "perceiving auditory and visual inputs, as well as generating text and speech."
+        "You are a speech translation system. "
+        "Translate the audio input into the target language. "
+        "Output only the translation. "
+        "Do not ask questions, do not add commentary, do not simulate a conversation, "
+        "do not write 'Human:', 'Assistant:', or any dialogue markers, including newlines. "
+        "If the audio is unclear or incomplete, output only what you can translate and stop."
     )
 
     def __init__(self, config: SimpleNamespace):
