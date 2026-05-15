@@ -196,6 +196,9 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
 
         first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
+        print("prefill:", output.attentions[0][0].shape)  # layer 0, prefill
+        if len(output.attentions) > 1:
+            print("step 1:", output.attentions[1][0].shape)  # layer 0, first decode step
         new_rows = [
             self.mean_attn_over_heads_and_selected_layers(step_attn).squeeze(0)[audio_positions]
             for step_attn in output.attentions[1:]
