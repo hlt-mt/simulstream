@@ -92,11 +92,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         cls.model.eval()
 
     def build_prompt(self) -> str:
-        return (
-            TEMPLATED_SPEECH_PROMPT
-            .replace("{src_lang}", LANG_MAPPER.get(self.src_lang, self.src_lang))
-            .replace("{tgt_lang}", LANG_MAPPER.get(self.tgt_lang, self.tgt_lang))
-        )
+        return f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
         prompt_text = self.build_prompt()
