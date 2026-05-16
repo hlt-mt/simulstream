@@ -183,11 +183,19 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             output = output[0]
 
         new_ids = output.sequences[:, input_len:]
-        stop_ids = {151643, 151645}
+        stop_ids = {151643}  # <|endoftext|>
+        strip_ids = {151645}  # <|im_end|>
+
+        keep_mask = []
         new_tokens = []
         for token_id in new_ids[0]:
-            if token_id.item() in stop_ids:
+            tid = token_id.item()
+            if tid in stop_ids:
                 break
+            if tid in strip_ids:
+                keep_mask.append(False)
+                continue
+            keep_mask.append(True)
             new_tokens.append(
                 self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
             )
@@ -208,6 +216,11 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
         new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+        new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+
+        # Align with filtered tokens
+        keep_tensor = torch.tensor(keep_mask, dtype=torch.bool, device=self.device)
+        new_attn = new_attn[keep_tensor]
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
         cross_attn = self.normalize_attn(cross_attn)
