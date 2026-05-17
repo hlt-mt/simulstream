@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-import logging
 from types import SimpleNamespace
 from typing import List, Tuple
 
@@ -32,9 +31,6 @@ from simulstream.server.speech_processors.base_doa import (
 from transformers import set_seed
 torch.manual_seed(42)
 set_seed(42)
-
-
-logger = logging.getLogger(__name__)
 
 
 class Qwen2_5OmniDOA(DecoderOnlyAttention):
@@ -57,6 +53,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
     AUDIO_TOKEN_INDEX = 151646
     AUDIO_START_TOKEN_ID = 151647
     AUDIO_END_TOKEN_ID = 151648
+    THINKER_EOS_TOKEN_IDS = [151643, 151645]  # <|endoftext|>, <|im_end|>
     SYSTEM_PROMPT = (
         "You are a speech translation system. "
         "Translate the audio input into the target language. "
@@ -171,6 +168,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             use_audio_in_video=True,
             return_audio=False,
             thinker_max_new_tokens=self.max_new_tokens,
+            thinker_eos_token_id=self.THINKER_EOS_TOKEN_IDS,
             thinker_repetition_penalty=self.repetition_penalty,
             thinker_no_repeat_ngram_size=self.no_repeat_ngram_size,
             thinker_output_attentions=True,
@@ -182,10 +180,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             output = output[0]
 
         new_ids = output.sequences[:, input_len:]
-        new_tokens = [
-            self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
-            for token_id in new_ids[0]
-        ]
+        generated_ids = new_ids[0].tolist()
 
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
         prefix_len = len(self.text_history) if self.text_history else 0
@@ -203,6 +198,11 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
         new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+
+        new_tokens = [
+            self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
+            for token_id in generated_ids
+        ]
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
         cross_attn = self.normalize_attn(cross_attn)
