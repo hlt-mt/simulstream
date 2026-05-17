@@ -177,13 +177,12 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
             temperature=self.temperature,
+            eos_token_id=[151643, 151645],  # <|endoftext|> and <|im_end|>
         )
         if isinstance(output, tuple):
             output = output[0]
 
         new_ids = output.sequences[:, input_len:]
-
-        # Decode tokens, stopping at <|endoftext|> and skipping <|im_end|>
         stop_ids = {151643}  # <|endoftext|>
         strip_ids = {151645}  # <|im_end|>
 
@@ -201,7 +200,6 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
                 self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
             )
 
-        # Build proxy cross-attention
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
         prefix_len = len(self.text_history) if self.text_history else 0
         if prefix_len > 0:
@@ -209,20 +207,19 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         else:
             prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
 
-        keep_tensor = torch.tensor(keep_mask, dtype=torch.bool, device=self.device)
-
-        first_new_row = prefill_attn[-1:, audio_positions] if keep_mask else \
+        first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
-
         new_rows = [
-            self.mean_attn_over_heads_and_selected_layers(step_attn)
-            .squeeze(0)[audio_positions]
-            for step_attn in output.attentions[1:len(keep_mask) + 1]
+            self.mean_attn_over_heads_and_selected_layers(step_attn).squeeze(0)[audio_positions]
+            for step_attn in output.attentions[1:]
         ]
         subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
-
         new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+        new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+
+        # Align with filtered tokens
+        keep_tensor = torch.tensor(keep_mask, dtype=torch.bool, device=self.device)
         new_attn = new_attn[keep_tensor]
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
