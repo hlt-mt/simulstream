@@ -182,14 +182,13 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             output = output[0]
 
         new_ids = output.sequences[:, input_len:]
-        eos_id = self.processor.tokenizer.eos_token_id
-        new_tokens = []
-        for token_id in new_ids[0]:
-            if token_id.item() == eos_id:
-                break
-            new_tokens.append(
-                self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
-            )
+        new_tokens = [
+            self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
+            for token_id in new_ids[0]
+        ]
+        # Add this:
+        print("new_ids:", new_ids[0].tolist())
+        print("new_tokens:", new_tokens)
 
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
         prefix_len = len(self.text_history) if self.text_history else 0
