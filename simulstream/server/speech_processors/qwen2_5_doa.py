@@ -182,9 +182,6 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             output = output[0]
 
         new_ids = output.sequences[:, input_len:]
-        for token_id in new_ids[0].tolist():
-            raw = self.processor.tokenizer.decode([token_id], skip_special_tokens=False)
-            print(f"{token_id}: {repr(raw)}")
         eos_id = self.processor.tokenizer.eos_token_id
         new_tokens = []
         for token_id in new_ids[0]:
