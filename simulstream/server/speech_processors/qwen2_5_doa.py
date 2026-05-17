@@ -176,6 +176,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
+            thinker_eos_token_id=[151643, 151645],  # <|endoftext|> and <|im_end|>
             temperature=self.temperature,
         )
         if isinstance(output, tuple):
