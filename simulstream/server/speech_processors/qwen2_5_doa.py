@@ -209,26 +209,21 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         else:
             prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
 
-        # Build all new token attention rows uniformly:
-        # - index 0 = prefill last row (predicts first new token)
-        # - index 1..n = decode steps from output.attentions[1:]
-        # keep_mask has exactly len(keep_mask) entries, one per non-EOS token in new_ids
-        n_generated = len(keep_mask)  # tokens before EOS, including <|im_end|> ones
-        all_new_rows = []
-        if n_generated > 0:
-            all_new_rows.append(prefill_attn[-1:, audio_positions])  # first token row
-        for step_attn in output.attentions[1:n_generated]:
-            all_new_rows.append(
-                self.mean_attn_over_heads_and_selected_layers(step_attn)
-                .squeeze(0)[audio_positions].unsqueeze(0)
-            )
+        keep_tensor = torch.tensor(keep_mask, dtype=torch.bool, device=self.device)
 
-        if all_new_rows:
-            new_attn = torch.cat(all_new_rows, dim=0)  # (n_generated, audio_len)
-            keep_tensor = torch.tensor(keep_mask, dtype=torch.bool, device=self.device)
-            new_attn = new_attn[keep_tensor]  # (n_kept, audio_len)
-        else:
-            new_attn = torch.zeros(0, max(audio_len, 1), device=self.device)
+        first_new_row = prefill_attn[-1:, audio_positions] if keep_mask else \
+            torch.zeros(0, max(audio_len, 1), device=self.device)
+
+        new_rows = [
+            self.mean_attn_over_heads_and_selected_layers(step_attn)
+            .squeeze(0)[audio_positions]
+            for step_attn in output.attentions[1:len(keep_mask) + 1]
+        ]
+        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
+            torch.zeros(0, max(audio_len, 1), device=self.device)
+
+        new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+        new_attn = new_attn[keep_tensor]
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
         cross_attn = self.normalize_attn(cross_attn)
