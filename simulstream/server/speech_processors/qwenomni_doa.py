@@ -20,7 +20,7 @@ import numpy as np
 import torch
 
 from qwen_omni_utils import process_mm_info
-from transformers import Qwen2_5OmniForConditionalGeneration, Qwen2_5OmniProcessor
+from transformers import Qwen3OmniMoeForConditionalGeneration, Qwen3OmniMoeProcessor
 
 from simulstream.server.speech_processors import SAMPLE_RATE, class_load
 from simulstream.server.speech_processors.base_doa import (
@@ -37,15 +37,14 @@ set_seed(42)
 logger = logging.getLogger(__name__)
 
 
-class Qwen2_5OmniDOA(DecoderOnlyAttention):
+class Qwen3OmniDOA(DecoderOnlyAttention):
     """
-    Decoder-Only Attention agent for ``Qwen/Qwen2.5-Omni-*``.
+    Decoder-Only Attention agent for ``Qwen/Qwen3-Omni-*``.
 
     Extra config fields
     -------------------
     hf_model_name : str
-        Default: ``"Qwen/Qwen2.5-Omni-7B"``.
-        ``"Qwen/Qwen2.5-Omni-3B"`` is also supported.
+        Default: ``"Qwen/Qwen3-Omni-30B-A3B-Instruct"``.
     repetition_penalty : float
         Repetition penalty for text generation. Default: ``1.0``.
     no_repeat_ngram_size : int
@@ -58,12 +57,8 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
     AUDIO_START_TOKEN_ID = 151647
     AUDIO_END_TOKEN_ID = 151648
     SYSTEM_PROMPT = (
-        "You are a speech translation system. "
-        "Translate the audio input into the target language. "
-        "Output only the translation. "
-        "Do not ask questions, do not add commentary, do not simulate a conversation, "
-        "do not write 'Human:', 'Assistant:', or any dialogue markers, including newlines. "
-        "If the audio is unclear or incomplete, output only what you can translate and stop."
+        "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
+        "perceiving auditory and visual inputs, as well as generating text and speech."
     )
 
     def __init__(self, config: SimpleNamespace):
@@ -72,7 +67,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         text_history_cls = class_load(self.text_history_config.type)
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
-        self.use_video =  getattr(self.config, "use_video", False)
+        self.use_video = getattr(self.config, "use_video", False)
         self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.05)
         self.temperature = getattr(self.config, "temperature", 1.0)
         self.no_repeat_ngram_size = getattr(self.config, "no_repeat_ngram_size", 5)
@@ -82,21 +77,25 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         model_name = getattr(
             config,
             "hf_model_name",
-            getattr(config, "model_path", "Qwen/Qwen2.5-Omni-7B"),
+            getattr(config, "model_path", "Qwen/Qwen3-Omni-30B-A3B-Instruct"),
         )
-        attn_impl = getattr(config, "attn_implementation", "eager") #"flash_attention_2")
+        attn_impl = getattr(config, "attn_implementation", "eager")
 
-        cls.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(
+        cls.model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
             model_name,
             torch_dtype="auto",
             device_map="auto",
             attn_implementation=attn_impl,
         )
-        cls.processor = Qwen2_5OmniProcessor.from_pretrained(model_name)
+        cls.processor = Qwen3OmniMoeProcessor.from_pretrained(model_name)
         cls.model.eval()
 
     def build_prompt(self) -> str:
-        return f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
+        return (
+            TEMPLATED_SPEECH_PROMPT
+            .replace("{src_lang}", LANG_MAPPER.get(self.src_lang, self.src_lang))
+            .replace("{tgt_lang}", LANG_MAPPER.get(self.tgt_lang, self.tgt_lang))
+        )
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
         prompt_text = self.build_prompt()
@@ -144,18 +143,18 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
         end_positions = (input_ids[0] == self.AUDIO_END_TOKEN_ID).nonzero(as_tuple=True)[0]
         if start_positions.numel() == 0 or end_positions.numel() == 0:
             raise ValueError(
-                "Qwen2.5-Omni audio tokens were not found in the prompt. Checked "
+                "Qwen3-Omni audio tokens were not found in the prompt. Checked "
                 "`audio_token_index`, `<|audio_bos|>`, and `<|audio_eos|>`."
             )
 
         start_pos = start_positions[0]
         end_positions = end_positions[end_positions > start_pos]
         if end_positions.numel() == 0:
-            raise ValueError("Qwen2.5-Omni found `<|audio_bos|>` but not a matching `<|audio_eos|>`.")
+            raise ValueError("Qwen3-Omni found `<|audio_bos|>` but not a matching `<|audio_eos|>`.")
 
         end_pos = end_positions[0]
         if end_pos <= start_pos + 1:
-            raise ValueError("Qwen2.5-Omni found empty audio span between `<|audio_bos|>` and `<|audio_eos|>`.")
+            raise ValueError("Qwen3-Omni found empty audio span between `<|audio_bos|>` and `<|audio_eos|>`.")
 
         return torch.arange(start_pos + 1, end_pos, device=input_ids.device)
 
@@ -176,7 +175,7 @@ class Qwen2_5OmniDOA(DecoderOnlyAttention):
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
-            #thinker_eos_token_id=[151643, 151645],  # <|endoftext|> and <|im_end|>
+            #thinker_eos_token_id=[151643, 151645],
             temperature=self.temperature,
         )
         if isinstance(output, tuple):
