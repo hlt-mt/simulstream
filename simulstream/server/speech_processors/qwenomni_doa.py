@@ -46,16 +46,14 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
     hf_model_name : str
         Default: ``"Qwen/Qwen3-Omni-30B-A3B-Instruct"``.
     repetition_penalty : float
-        Repetition penalty for text generation. Default: ``1.0``.
+        Repetition penalty for text generation. Default: ``1.05``.
     no_repeat_ngram_size : int
-        N-gram blocking size for text generation. Default: ``0``.
+        N-gram blocking size for text generation. Default: ``5``.
     """
 
     BOW_PREFIX = " "
     AUDIO_TOKEN_STRIDE = 640
     AUDIO_TOKEN_INDEX = 151646
-    AUDIO_START_TOKEN_ID = 151647
-    AUDIO_END_TOKEN_ID = 151648
     SYSTEM_PROMPT = (
         "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
         "perceiving auditory and visual inputs, as well as generating text and speech."
@@ -86,6 +84,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
             torch_dtype="auto",
             device_map="auto",
             attn_implementation=attn_impl,
+            enable_audio_output=False,
         )
         cls.processor = Qwen3OmniMoeProcessor.from_pretrained(model_name)
         cls.model.eval()
@@ -99,6 +98,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
         prompt_text = self.build_prompt()
+        prefix = self.build_raw_text_prefix()
 
         conversation = [
             {
@@ -119,11 +119,10 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
             add_generation_prompt=True,
             tokenize=False,
         )
-        prefix = self.build_raw_text_prefix()
 
         audios, images, videos = process_mm_info(conversation, use_audio_in_video=True)
 
-        return self.processor(
+        inputs = self.processor(
             text=f"{prompt}{prefix}",
             audio=audios,
             images=images,
@@ -132,31 +131,11 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
             return_tensors="pt",
             padding=True,
             use_audio_in_video=True,
-        ).to(self.device)
+        )
+        return inputs.to(self.device).to(self.model.dtype)
 
     def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
-        audio_positions = (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
-        if audio_positions.numel() > 0:
-            return audio_positions
-
-        start_positions = (input_ids[0] == self.AUDIO_START_TOKEN_ID).nonzero(as_tuple=True)[0]
-        end_positions = (input_ids[0] == self.AUDIO_END_TOKEN_ID).nonzero(as_tuple=True)[0]
-        if start_positions.numel() == 0 or end_positions.numel() == 0:
-            raise ValueError(
-                "Qwen3-Omni audio tokens were not found in the prompt. Checked "
-                "`audio_token_index`, `<|audio_bos|>`, and `<|audio_eos|>`."
-            )
-
-        start_pos = start_positions[0]
-        end_positions = end_positions[end_positions > start_pos]
-        if end_positions.numel() == 0:
-            raise ValueError("Qwen3-Omni found `<|audio_bos|>` but not a matching `<|audio_eos|>`.")
-
-        end_pos = end_positions[0]
-        if end_pos <= start_pos + 1:
-            raise ValueError("Qwen3-Omni found empty audio span between `<|audio_bos|>` and `<|audio_eos|>`.")
-
-        return torch.arange(start_pos + 1, end_pos, device=input_ids.device)
+        return (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
 
     def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
         input_ids = inputs["input_ids"]
