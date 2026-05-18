@@ -53,6 +53,9 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
     BOW_PREFIX = " "
     AUDIO_TOKEN_STRIDE = 640
+    AUDIO_TOKEN = "<|AUDIO|>"
+    AUDIO_START_TOKEN = "<|audio_bos|>"
+    AUDIO_END_TOKEN = "<|audio_eos|>"
     AUDIO_TOKEN_INDEX = 151646
     AUDIO_START_TOKEN_ID = 151647
     AUDIO_END_TOKEN_ID = 151648
@@ -73,6 +76,19 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         self.no_repeat_ngram_size = getattr(self.config, "no_repeat_ngram_size", 5)
 
     @classmethod
+    def _resolve_special_token_id(cls, token: str, fallback_id: int) -> int:
+        tokenizer = cls.processor.tokenizer
+        token_id = tokenizer.get_vocab().get(token)
+        if token_id is not None:
+            return token_id
+
+        converted_id = tokenizer.convert_tokens_to_ids(token)
+        unk_token_id = getattr(tokenizer, "unk_token_id", None)
+        if converted_id is not None and converted_id != unk_token_id:
+            return converted_id
+        return fallback_id
+
+    @classmethod
     def load_model(cls, config: SimpleNamespace) -> None:
         model_name = getattr(
             config,
@@ -89,6 +105,18 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
             enable_audio_output=False,
         )
         cls.processor = Qwen3OmniMoeProcessor.from_pretrained(model_name)
+        cls.AUDIO_TOKEN_INDEX = cls._resolve_special_token_id(
+            cls.AUDIO_TOKEN,
+            cls.AUDIO_TOKEN_INDEX,
+        )
+        cls.AUDIO_START_TOKEN_ID = cls._resolve_special_token_id(
+            cls.AUDIO_START_TOKEN,
+            cls.AUDIO_START_TOKEN_ID,
+        )
+        cls.AUDIO_END_TOKEN_ID = cls._resolve_special_token_id(
+            cls.AUDIO_END_TOKEN,
+            cls.AUDIO_END_TOKEN_ID,
+        )
         cls.model.eval()
 
     def build_prompt(self) -> str:
