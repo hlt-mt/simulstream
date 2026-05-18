@@ -54,6 +54,8 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
     BOW_PREFIX = " "
     AUDIO_TOKEN_STRIDE = 640
     AUDIO_TOKEN_INDEX = 151646
+    AUDIO_START_TOKEN_ID = 151647
+    AUDIO_END_TOKEN_ID = 151648
     SYSTEM_PROMPT = (
         "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
         "perceiving auditory and visual inputs, as well as generating text and speech."
@@ -135,7 +137,28 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         return inputs.to(self.device).to(self.model.dtype)
 
     def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
-        return (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+        audio_positions = (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+        if audio_positions.numel() > 0:
+            return audio_positions
+
+        start_positions = (input_ids[0] == self.AUDIO_START_TOKEN_ID).nonzero(as_tuple=True)[0]
+        end_positions = (input_ids[0] == self.AUDIO_END_TOKEN_ID).nonzero(as_tuple=True)[0]
+        if start_positions.numel() == 0 or end_positions.numel() == 0:
+            raise ValueError(
+                "Qwen3-Omni audio tokens were not found in the prompt. Checked "
+                "`audio_token_index`, `<|audio_bos|>`, and `<|audio_eos|>`."
+            )
+
+        start_pos = start_positions[0]
+        end_positions = end_positions[end_positions > start_pos]
+        if end_positions.numel() == 0:
+            raise ValueError("Qwen3-Omni found `<|audio_bos|>` but not a matching `<|audio_eos|>`.")
+
+        end_pos = end_positions[0]
+        if end_pos <= start_pos + 1:
+            raise ValueError("Qwen3-Omni found empty audio span between `<|audio_bos|>` and `<|audio_eos|>`.")
+
+        return torch.arange(start_pos + 1, end_pos, device=input_ids.device)
 
     def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
         input_ids = inputs["input_ids"]
@@ -168,19 +191,19 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
         prefix_len = len(self.text_history) if self.text_history else 0
-
-        empty_attn = torch.zeros(0, audio_len, device=self.device)
         if prefix_len > 0:
             prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
         else:
-            prefix_rows = empty_attn
+            prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
 
-        first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else empty_attn
+        first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else \
+            torch.zeros(0, max(audio_len, 1), device=self.device)
         new_rows = [
             self.mean_attn_over_heads_and_selected_layers(step_attn).squeeze(0)[audio_positions]
             for step_attn in output.attentions[1:]
         ]
-        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else empty_attn
+        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
+            torch.zeros(0, max(audio_len, 1), device=self.device)
         new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
