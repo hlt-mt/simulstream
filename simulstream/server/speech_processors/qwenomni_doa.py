@@ -168,19 +168,19 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
         prefix_len = len(self.text_history) if self.text_history else 0
+
+        empty_attn = torch.zeros(0, audio_len, device=self.device)
         if prefix_len > 0:
             prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
         else:
-            prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
+            prefix_rows = empty_attn
 
-        first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else \
-            torch.zeros(0, max(audio_len, 1), device=self.device)
+        first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else empty_attn
         new_rows = [
             self.mean_attn_over_heads_and_selected_layers(step_attn).squeeze(0)[audio_positions]
             for step_attn in output.attentions[1:]
         ]
-        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
-            torch.zeros(0, max(audio_len, 1), device=self.device)
+        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else empty_attn
         new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
 
         cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
