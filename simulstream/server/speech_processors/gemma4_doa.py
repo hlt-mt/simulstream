@@ -54,6 +54,7 @@ class Gemma4DOA(DecoderOnlyAttention):
     BOW_PREFIX = " "
     AUDIO_TOKEN_INDEX = 258881  # <|audio|>
     AUDIO_TOKEN_STRIDE = 640    # 16000 / 25 tokens per second
+    GLOBAL_LAYERS = [4, 9, 14, 19, 24, 29, 34] # Indices of global (non-sliding) attention layers
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
@@ -130,6 +131,12 @@ class Gemma4DOA(DecoderOnlyAttention):
 
     def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
         return (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+
+    def mean_attn_over_heads_and_selected_layers(self, step_attn) -> torch.Tensor:
+        return torch.stack(
+            [self._select_attn_from_layer(step_attn[i]) for i in self.GLOBAL_LAYERS],
+            dim=0,
+        ).mean(dim=0)
 
     def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
         input_ids = inputs["input_ids"]
