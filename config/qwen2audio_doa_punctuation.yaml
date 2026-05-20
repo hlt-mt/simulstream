@@ -1,4 +1,4 @@
-type: "simulstream.server.speech_processors.qwen2_5_doa.Qwen2_5OmniDOA"
+type: "simulstream.server.speech_processors.qwenaudio.Qwen2AudioDOA"
 text_history:
   type: "simulstream.server.speech_processors.base_streamatt.PunctuationTextHistory"
 audio_history_max_duration: 120  # Maximum length for the audio buffer, in seconds
@@ -9,7 +9,7 @@ attn_head: null  # Optional specific head; null means average over heads
 average_attn_over_layers: True
 cutoff_frame_num: __FRAME__
 detokenizer_type: "hf"
-hf_model_name: "Qwen/Qwen2.5-Omni-3B"
+hf_model_name: "Qwen/Qwen2-Audio-7B-Instruct"
 use_video: False
 word_level_postprocess: True  # Disable if character-level language
 max_new_tokens: 32
