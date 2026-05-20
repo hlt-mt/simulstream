@@ -114,15 +114,27 @@ class Qwen2AudioDOA(DecoderOnlyAttention):
         )
         return inputs.to(self.device)
 
-    def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
-        return (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+    def _find_audio_positions(self, input_ids: torch.Tensor, prefill_len: int) -> torch.Tensor:
+        raw_audio_positions = (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+        if raw_audio_positions.numel() == 0:
+            raise ValueError("Qwen2-Audio audio placeholder token was not found in input_ids.")
+
+        if raw_audio_positions.numel() > 1 or prefill_len == input_ids.shape[1]:
+            return raw_audio_positions
+
+        expanded_audio_len = prefill_len - input_ids.shape[1] + 1
+        if expanded_audio_len <= 0:
+            raise ValueError(
+                "Qwen2-Audio audio expansion length is invalid. "
+                f"prefill_len={prefill_len}, input_len={input_ids.shape[1]}."
+            )
+
+        start = raw_audio_positions[0].item()
+        return torch.arange(start, start + expanded_audio_len, device=input_ids.device)
 
     def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
         input_ids = inputs["input_ids"]
         input_len = input_ids.shape[1]
-
-        audio_positions = self._find_audio_positions(input_ids)
-        audio_len = audio_positions.shape[0]
 
         output = self.model.generate(
             **inputs,
@@ -142,6 +154,8 @@ class Qwen2AudioDOA(DecoderOnlyAttention):
         ]
 
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
+        audio_positions = self._find_audio_positions(input_ids, prefill_attn.shape[0])
+        audio_len = audio_positions.shape[0]
         prefix_len = len(self.text_history) if self.text_history else 0
         empty_attn = torch.zeros(0, audio_len, device=self.device)
 
