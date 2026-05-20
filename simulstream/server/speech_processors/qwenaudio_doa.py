@@ -41,8 +41,9 @@ class Qwen2AudioDOA(DecoderOnlyAttention):
     Decoder-Only Attention agent for ``Qwen/Qwen2-Audio-7B-Instruct``.
 
     Architecture: Whisper encoder (subsampling factor 2) → linear projector → Qwen2-7B.
-    Audio is represented as repeated ``<|AUDIO|>`` (id=151646) placeholder tokens
-    in ``input_ids`` after processor expansion.
+    Audio is serialized through the official Qwen2-Audio chat template and then
+    expanded by the processor into repeated ``<|AUDIO|>`` placeholder tokens in
+    ``input_ids``.
 
     Extra config fields
     -------------------
@@ -97,13 +98,19 @@ class Qwen2AudioDOA(DecoderOnlyAttention):
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
         prefix = self.build_raw_text_prefix()
-        prompt = f"<|audio_bos|><|AUDIO|><|audio_eos|>{self.build_prompt()}"
+        prompt = (
+            "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
+            "Audio 1: <|audio_bos|><|AUDIO|><|audio_eos|>\n"
+            f"{self.build_prompt()}<|im_end|>\n"
+            f"<|im_start|>assistant\n{prefix}"
+        )
 
         inputs = self.processor(
-            text=f"{prompt}{prefix}",
-            audios=waveform,
+            text=prompt,
+            audios=[waveform],
             sampling_rate=SAMPLE_RATE,
             return_tensors="pt",
+            padding=True,
         )
         return inputs.to(self.device)
 
