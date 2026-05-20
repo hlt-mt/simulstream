@@ -1,4 +1,4 @@
-type: "simulstream.server.speech_processors.qwenaudio.Qwen2AudioDOA"
+type: "simulstream.server.speech_processors.qwenaudio_doa.Qwen2AudioDOA"
 text_history:
   type: "simulstream.server.speech_processors.base_streamatt.PunctuationTextHistory"
 audio_history_max_duration: 120  # Maximum length for the audio buffer, in seconds
