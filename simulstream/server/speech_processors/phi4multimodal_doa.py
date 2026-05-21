@@ -24,8 +24,8 @@ from simulstream.server.speech_processors import SAMPLE_RATE, class_load
 from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, LANG_MAPPER
 
 from transformers import set_seed
-torch.manual_seed(41)
-set_seed(41)
+torch.manual_seed(42)
+set_seed(42)
 
 
 class Phi4MultimodalDOA(DecoderOnlyAttention):
