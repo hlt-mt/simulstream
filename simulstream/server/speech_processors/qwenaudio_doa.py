@@ -98,17 +98,27 @@ class Qwen2AudioDOA(DecoderOnlyAttention):
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
         prefix = self.build_raw_text_prefix()
-        prompt = (
-            "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
-            "Audio 1: <|audio_bos|><|AUDIO|><|audio_eos|>\n"
-            f"{self.build_prompt()}<|im_end|>\n"
-            f"<|im_start|>assistant\n{prefix}"
+
+        conversation = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "audio", "audio_url": "placeholder"},
+                    {"type": "text", "text": self.build_prompt()},
+                ],
+            },
+        ]
+
+        text = self.processor.apply_chat_template(
+            conversation,
+            add_generation_prompt=True,
+            tokenize=False,
         )
 
         inputs = self.processor(
-            text=prompt,
-            audios=[waveform],
-            sampling_rate=SAMPLE_RATE,
+            text=f"{text}{prefix}",
+            audio=[waveform],
             return_tensors="pt",
             padding=True,
         )
@@ -133,6 +143,7 @@ class Qwen2AudioDOA(DecoderOnlyAttention):
             return_dict_in_generate=True,
             do_sample=False,
             temperature=self.temperature,
+            eos_token_id=[151643, 151645],  # <|endoftext|> and <|im_end|>
         )
 
         new_ids = output.sequences[:, input_len:]
