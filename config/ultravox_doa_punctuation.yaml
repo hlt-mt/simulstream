@@ -1,7 +1,7 @@
 type: "simulstream.server.speech_processors.ultravox_doa.UltravoxDOA"
 text_history:
   type: "simulstream.server.speech_processors.base_streamatt.PunctuationTextHistory"
-audio_history_max_duration: 90  # Maximum length for the audio buffer, in seconds
+audio_history_max_duration: 120  # Maximum length for the audio buffer, in seconds
 text_history_max_len: 128
 speech_chunk_size: 1  # seconds
 attn_layer: __LAYER__
