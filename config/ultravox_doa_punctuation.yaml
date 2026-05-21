@@ -9,6 +9,6 @@ attn_head: null  # Optional specific head; null means average over heads
 average_attn_over_layers: True
 cutoff_frame_num: __FRAME__
 detokenizer_type: "hf"
-hf_model_name: "fixie-ai/ultravox-v0_6-llama-3_1-8b"e
+hf_model_name: "fixie-ai/ultravox-v0_6-llama-3_1-8b"
 word_level_postprocess: True  # Disable if character-level language
 max_new_tokens: 32
