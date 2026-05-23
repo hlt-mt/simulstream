@@ -60,7 +60,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             device_map="cuda",
             torch_dtype="auto",
             trust_remote_code=True,
-            _attn_implementation="eager",
+            #_attn_implementation="eager",
         )
         cls.model.eval()
         cls.generation_config = GenerationConfig.from_pretrained(model_path)
