@@ -98,24 +98,35 @@ class VoxtralDOA(DecoderOnlyAttention):
         )
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
-        prefix = self.build_raw_text_prefix()
-
-        # apply_chat_template requires a file path — write waveform to a temp file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             tmp_path = f.name
         sf.write(tmp_path, waveform, SAMPLE_RATE)
 
         try:
-            conversation = {
-                "role": "user",
-                "content": [
-                    {"type": "audio", "path": tmp_path},
-                    {"type": "text", "text": f"{self.build_prompt()}{prefix}"},
-                ],
-            }
-            inputs = self.processor.apply_chat_template([conversation])
+            conversation = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "audio", "path": tmp_path},
+                        {"type": "text", "text": self.build_prompt()},
+                    ],
+                },
+            ]
+            inputs = self.processor.apply_chat_template(conversation)
         finally:
             os.unlink(tmp_path)
+
+        prefix = self.build_raw_text_prefix()
+        if prefix:
+            prefix_ids = self.processor.tokenizer(
+                prefix,
+                return_tensors="pt",
+                add_special_tokens=False,
+            ).input_ids
+            inputs["input_ids"] = torch.cat([inputs["input_ids"], prefix_ids], dim=1)
+            inputs["attention_mask"] = torch.cat(
+                [inputs["attention_mask"], torch.ones_like(prefix_ids)], dim=1
+            )
 
         return inputs.to(self.device, dtype=torch.bfloat16)
 
