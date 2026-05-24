@@ -30,16 +30,16 @@ def build_hf_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], str]:
     return detokenize
 
 def build_voxtral_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], str]:
-    from transformers import AutoProcessor
+    from transformers import AutoTokenizer
 
     assert hasattr(config, "hf_model_name"), \
         "`hf_model_name` required in the eval config for `voxtral` detokenizer"
-    processor = AutoProcessor.from_pretrained(config.hf_model_name)
-    tokenizer = processor.audio_tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(config.hf_model_name)
 
     def detokenize(input_tokens: List[str]) -> str:
-        ids = tokenizer.convert_tokens_to_ids(input_tokens)
-        return tokenizer.decode(ids, skip_special_tokens=True)
+        text = "".join(input_tokens)
+        ids = tokenizer.encode(text, bos=False, eos=False)
+        return tokenizer.tokenizer.decode(ids)
 
     return detokenize
 
