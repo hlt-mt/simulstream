@@ -13,8 +13,8 @@
 # limitations under the License
 
 import logging
-import tempfile
-import os
+import base64
+import io
 from types import SimpleNamespace
 from typing import List, Tuple
 
@@ -98,23 +98,20 @@ class VoxtralDOA(DecoderOnlyAttention):
         )
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            tmp_path = f.name
-        sf.write(tmp_path, waveform, SAMPLE_RATE)
+        audio_buffer = io.BytesIO()
+        sf.write(audio_buffer, waveform, SAMPLE_RATE, format="WAV")
+        audio_base64 = base64.b64encode(audio_buffer.getvalue()).decode("utf-8")
 
-        try:
-            conversation = [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "audio", "path": tmp_path},
-                        {"type": "text", "text": self.build_prompt()},
-                    ],
-                },
-            ]
-            inputs = self.processor.apply_chat_template(conversation)
-        finally:
-            os.unlink(tmp_path)
+        conversation = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "audio", "base64": audio_base64},
+                    {"type": "text", "text": self.build_prompt()},
+                ],
+            },
+        ]
+        inputs = self.processor.apply_chat_template(conversation)
 
         prefix = self.build_raw_text_prefix()
         if prefix:
