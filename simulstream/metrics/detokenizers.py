@@ -38,7 +38,7 @@ def build_voxtral_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], 
 
     def detokenize(input_tokens: List[str]) -> str:
         text = "".join(input_tokens)
-        ids = tokenizer.encode(text, bos=False, eos=False)
+        ids = tokenizer.encode(text, add_special_tokens=False)
         return tokenizer.tokenizer.decode(ids)
 
     return detokenize
