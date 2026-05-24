@@ -35,8 +35,7 @@ def build_voxtral_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], 
     assert hasattr(config, "hf_model_name"), \
         "`hf_model_name` required in the eval config for `voxtral` detokenizer"
     processor = AutoProcessor.from_pretrained(config.hf_model_name)
-    # MistralCommonTokenizer wraps the actual tokenizer under .tokenizer
-    tokenizer = processor.tokenizer.tokenizer
+    tokenizer = processor.audio_tokenizer
 
     def detokenize(input_tokens: List[str]) -> str:
         ids = tokenizer.convert_tokens_to_ids(input_tokens)
