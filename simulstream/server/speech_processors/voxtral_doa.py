@@ -28,12 +28,18 @@ from simulstream.server.speech_processors import SAMPLE_RATE, class_load
 from simulstream.server.speech_processors.base_doa import (
     DecoderOnlyAttention,
     LANG_MAPPER,
-    TEMPLATED_SPEECH_PROMPT,
 )
 
 from transformers import set_seed
 torch.manual_seed(42)
 set_seed(42)
+
+
+SUGGESTED_PROMPT = \
+    ("You are an expert multilingual speech translator. Your task is to accurately translate "
+     "the provided audio from {src_lang} into {tgt_lang}. Output ONLY the translated text. "
+     "Maintain the original tone, context, and speaker intent without adding any extra "
+     "conversational filler.")
 
 
 logger = logging.getLogger(__name__)
@@ -92,7 +98,7 @@ class VoxtralDOA(DecoderOnlyAttention):
 
     def build_prompt(self) -> str:
         return (
-            TEMPLATED_SPEECH_PROMPT
+            SUGGESTED_PROMPT
             .replace("{src_lang}", LANG_MAPPER.get(self.src_lang, self.src_lang))
             .replace("{tgt_lang}", LANG_MAPPER.get(self.tgt_lang, self.tgt_lang))
         )
