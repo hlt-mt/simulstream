@@ -24,8 +24,13 @@ def build_hf_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], str]:
     processor = AutoProcessor.from_pretrained(config.hf_model_name, trust_remote_code=True)
     tokenizer = processor.tokenizer if hasattr(processor, "tokenizer") else processor
 
-    def detokenize(input_tokens: List[str]) -> str:
-        return tokenizer.convert_tokens_to_string(input_tokens)
+    if hasattr(tokenizer, "convert_tokens_to_string"):
+        def detokenize(input_tokens: List[str]) -> str:
+            return tokenizer.convert_tokens_to_string(input_tokens)
+    else:
+        def detokenize(input_tokens: List[str]) -> str:
+            ids = tokenizer.convert_tokens_to_ids(input_tokens)
+            return tokenizer.tokenizer.decode(ids, skip_special_tokens=True)
 
     return detokenize
 
