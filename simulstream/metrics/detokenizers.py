@@ -24,13 +24,23 @@ def build_hf_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], str]:
     processor = AutoProcessor.from_pretrained(config.hf_model_name, trust_remote_code=True)
     tokenizer = processor.tokenizer if hasattr(processor, "tokenizer") else processor
 
-    if hasattr(tokenizer, "convert_tokens_to_string"):
-        def detokenize(input_tokens: List[str]) -> str:
-            return tokenizer.convert_tokens_to_string(input_tokens)
-    else:
-        def detokenize(input_tokens: List[str]) -> str:
-            ids = tokenizer.convert_tokens_to_ids(input_tokens)
-            return tokenizer.tokenizer.decode(ids, skip_special_tokens=True)
+    def detokenize(input_tokens: List[str]) -> str:
+        return tokenizer.convert_tokens_to_string(input_tokens)
+
+    return detokenize
+
+def build_voxtral_detokenizer(config: SimpleNamespace) -> Callable[[List[str]], str]:
+    from transformers import AutoProcessor
+
+    assert hasattr(config, "hf_model_name"), \
+        "`hf_model_name` required in the eval config for `voxtral` detokenizer"
+    processor = AutoProcessor.from_pretrained(config.hf_model_name)
+    # MistralCommonTokenizer wraps the actual tokenizer under .tokenizer
+    tokenizer = processor.tokenizer.tokenizer
+
+    def detokenize(input_tokens: List[str]) -> str:
+        ids = tokenizer.convert_tokens_to_ids(input_tokens)
+        return tokenizer.decode(ids, skip_special_tokens=True)
 
     return detokenize
 
@@ -69,7 +79,8 @@ def build_simuleval_detokenizer(config: SimpleNamespace) -> Callable[[List[str]]
 _DETOKENIZER_BUILDER_MAP: Dict[str, Callable[[SimpleNamespace], Callable[[List[str]], str]]] = {
     "hf": build_hf_detokenizer,
     "canary": build_canary_detokenizer,
-    "simuleval": build_simuleval_detokenizer
+    "simuleval": build_simuleval_detokenizer,
+    "voxtral": build_voxtral_detokenizer,
 }
 
 
