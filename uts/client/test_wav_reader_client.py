@@ -13,17 +13,8 @@
 # limitations under the License
 
 import os
-import sys
 import tempfile
-import types
 import unittest
-
-try:
-    import websockets  # noqa: F401
-except ModuleNotFoundError:
-    websockets = types.ModuleType("websockets")
-    websockets.ClientConnection = object
-    sys.modules["websockets"] = websockets
 
 from simulstream.client.wav_reader_client import load_wav_file_list
 
