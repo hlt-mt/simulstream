@@ -159,7 +159,11 @@ def load_wav_file_list(list_file_path: str) -> List[str]:
     """
     basedir = os.path.dirname(list_file_path)
     with open(list_file_path, 'r') as f:
-        wav_files = [basedir + '/' + line.strip() for line in f if line.strip()]
+        wav_files = [
+            line.strip() if os.path.isabs(line.strip())
+            else os.path.abspath(os.path.join(basedir, line.strip()))
+            for line in f if line.strip()
+        ]
     if not wav_files:
         LOGGER.error("No valid WAV files found in the list.")
         exit(1)
