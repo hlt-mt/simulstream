@@ -34,10 +34,10 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
     """
 
     # Phi-4 special tokens
-    _USER_START  = "<|user|>"
+    _USER_START = "<|user|>"
     _AUDIO_TOKEN = "<|audio_1|>"
-    _END_TOKEN   = "<|end|>"
-    _ASST_START  = "<|assistant|>"
+    _END_TOKEN = "<|end|>"
+    _ASST_START = "<|assistant|>"
 
     BOW_PREFIX = " "
     ENCODER_SUBSAMPLING_FACTOR = 8
@@ -149,11 +149,10 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             torch.zeros(0, max(audio_len, 1), device=self.device)
         new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
 
-        cross_attn = torch.cat([prefix_rows, new_attn], dim=0) # (n_prefix + n_new, audio_len)
+        cross_attn = torch.cat([prefix_rows, new_attn], dim=0)  # (n_prefix + n_new, audio_len)
         cross_attn = self.normalize_attn(cross_attn)
 
         return new_tokens, cross_attn
-
 
     def tokens_to_string(self, tokens: List[str]) -> str:
         return "".join(tokens)
