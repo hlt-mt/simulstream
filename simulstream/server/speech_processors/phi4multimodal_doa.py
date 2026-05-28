@@ -102,12 +102,11 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         input_ids = inputs["input_ids"]  # (1, input_len)
         input_len = input_ids.shape[1]
 
-        # Locate audio positions ──────────────────────────────────────────────────────────────────
+        # Locate audio positions.
         AUDIO_SPECIAL_TOKEN_ID = 200011  # _AUDIO_SPECIAL_TOKEN_ID in modeling_phi4mm.py
         audio_positions = (input_ids[0] == AUDIO_SPECIAL_TOKEN_ID).nonzero(as_tuple=True)[0]
         audio_len = audio_positions.shape[0]
 
-        # Generate ────────────────────────────────────────────────────────────────────────────────
         output = self.model.generate(
             **inputs,
             max_new_tokens=self.max_new_tokens,
@@ -118,14 +117,14 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             do_sample=False,
         )
 
-        # Decode newly generated tokens only ──────────────────────────────────────────────────────
+        # Decode newly generated tokens only.
         new_ids = output.sequences[:, input_len:]  # (1, n_new)
         new_tokens = [
             self.processor.tokenizer.decode([t], skip_special_tokens=True)
             for t in new_ids[0]
         ]
 
-        # Build proxy cross-attention for the hypothesis (prefix + new_tokens) ────────────────────
+        # Build proxy cross-attention for the hypothesis (prefix + new_tokens).
         # Prefix rows from the prefill pass
         # output.attentions[0][layer]: (1, H, input_len, input_len)
         prefill_attn = self.mean_attn_over_heads_and_selected_layers(

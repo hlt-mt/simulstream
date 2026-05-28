@@ -172,7 +172,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         audio_positions = self._find_audio_positions(input_ids)
         audio_len = audio_positions.shape[0]
 
-        # Generate.
         output = self.model.generate(
             **inputs,
             use_audio_in_video=True,
