@@ -10,6 +10,5 @@ average_attn_over_layers: True
 cutoff_frame_num: __FRAME__
 detokenizer_type: "hf"
 hf_model_name: "Qwen/Qwen3-Omni-30B-A3B-Instruct"
-use_video: False
 word_level_postprocess: True  # Disable if character-level language
 max_new_tokens: 32

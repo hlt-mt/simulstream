@@ -30,7 +30,7 @@ set_seed(42)
 
 class Phi4MultimodalDOA(DecoderOnlyAttention):
     """
-    Decoder-Only Attention agent for ``microsoft/Phi-4-multimodal-instruct``.
+    Decoder-Only Attention agent for Phi4-Multimodal.
     """
 
     # Phi-4 special tokens
@@ -45,9 +45,8 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
-        self.bow_prefix = self.BOW_PREFIX
         text_history_cls = class_load(self.text_history_config.type)
-        self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
+        self.text_history_method = text_history_cls(self.text_history_config, self.BOW_PREFIX)
         self.audio_subsampling_factor = self.ENCODER_SUBSAMPLING_FACTOR * self.HOP_LENGTH
 
     @classmethod

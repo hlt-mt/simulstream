@@ -39,14 +39,14 @@ logger = logging.getLogger(__name__)
 
 class Qwen3OmniDOA(DecoderOnlyAttention):
     """
-    Decoder-Only Attention agent for ``Qwen/Qwen3-Omni-*``.
+    Decoder-Only Attention agent for Qwen3-Omni.
 
     Extra config fields
     -------------------
-    hf_model_name : str
-        Default: ``"Qwen/Qwen3-Omni-30B-A3B-Instruct"``.
     repetition_penalty : float
         Repetition penalty for text generation. Default: ``1.05``.
+    temperature : float
+        Temperature for text generation. Default: ``1.0``.
     no_repeat_ngram_size : int
         N-gram blocking size for text generation. Default: ``5``.
     """
@@ -67,7 +67,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         text_history_cls = class_load(self.text_history_config.type)
         self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
-        self.use_video = getattr(self.config, "use_video", False)
         self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.05)
         self.temperature = getattr(self.config, "temperature", 1.0)
         self.no_repeat_ngram_size = getattr(self.config, "no_repeat_ngram_size", 5)

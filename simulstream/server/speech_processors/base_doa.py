@@ -39,7 +39,7 @@ LANG_MAPPER = {"en": "English", "it": "Italian", "de": "German", "zh": "Chinese 
 
 class DecoderOnlyAttention(BaseStreamAtt):
     """
-    Generic Decoder-only Attention-based policy for SpeechLLMs.
+    Generic Decoder-only Attention-based (DOA) policy for SpeechLLMs.
 
     The class handles:
     - Raw-waveform history accumulation.
@@ -53,9 +53,9 @@ class DecoderOnlyAttention(BaseStreamAtt):
     ----------
     config : SimpleNamespace
         All fields from :class:`BaseStreamAtt`, plus:
-        attn_layer : int
+        cross_attn_layer : int
             Layer from which to extract attention scores. Default: ``0``.
-        attn_head : int | None
+        cross_attn_head : int | None
             Attention head to use. If ``None``, attention scores are averaged
             over all heads. If set together with
             ``average_attn_over_layers=True``, the selected head is averaged
@@ -67,6 +67,8 @@ class DecoderOnlyAttention(BaseStreamAtt):
         audio_history_max_duration : int
             Maximum raw waveform length to keep in the rolling history.
             Default: ``180`` (seconds).
+        device : torch.device
+            Device to use for model's loading and execution.
         max_new_tokens : int
             Maximum tokens to generate per chunk.  Default: ``32``.
 
@@ -88,7 +90,7 @@ class DecoderOnlyAttention(BaseStreamAtt):
         super().__init__(config)
         self.cross_attn_layer = getattr(self.config, "attn_layer", 0)
         self.cross_attn_head = getattr(self.config, "attn_head", None)
-        self.average_attn_over_layers = getattr(self.config, "average_attn_over_layers", False)
+        self.average_attn_over_layers = getattr(self.config, "average_attn_over_layers", True)
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
