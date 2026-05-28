@@ -73,7 +73,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
     @classmethod
     def load_model(cls, config: SimpleNamespace) -> None:
-        """Load the Qwen3-Omni model and processor."""
         model_name = getattr(
             config,
             "hf_model_name",
@@ -92,7 +91,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         cls.model.eval()
 
     def build_prompt(self) -> str:
-        """Build the translation instruction used alongside the audio input."""
         return (
             TEMPLATED_SPEECH_PROMPT
             .replace("{src_lang}", LANG_MAPPER.get(self.src_lang, self.src_lang))
@@ -185,7 +183,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
             thinker_output_attentions=True,
             thinker_return_dict_in_generate=True,
             thinker_do_sample=False,
-            #thinker_eos_token_id=[151643, 151645],
             temperature=self.temperature,
         )
         if isinstance(output, tuple):
