@@ -210,7 +210,8 @@ class SeamlessStreamAtt(BaseStreamAtt):
             for tok_idx in range(new_hypo_len):
                 # Select the cross attention matrix using the beam_indices
                 beam_indices = gen_out.beam_indices[:, tok_idx]
-                # add some comments on why tok_idx + 1, and the -1 selection
+                # cross_attentions[0] contains the forced decoder prefix attention. Generated
+                # tokens start at tok_idx + 1, and -1 selects the current token query row.
                 cross_attn = gen_out.cross_attentions[
                     tok_idx + 1][self.cross_attn_layer][:, :, -1, :]
                 cross_attn = cross_attn.index_select(dim=0, index=beam_indices)
@@ -218,6 +219,7 @@ class SeamlessStreamAtt(BaseStreamAtt):
         else:
             # Greedy search
             for tok_idx in range(new_hypo_len):
+                # See the beam-search branch above for why tok_idx + 1 and -1 are used.
                 cross_attn = gen_out.cross_attentions[
                     tok_idx + 1][self.cross_attn_layer][:, :, -1, :]
                 cross_attns.append(cross_attn)
