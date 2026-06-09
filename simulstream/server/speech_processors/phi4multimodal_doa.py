@@ -12,20 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-import torch
-import numpy as np
-
 from types import SimpleNamespace
 from typing import List, Tuple
 
+import numpy as np
+import torch
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
 from simulstream.server.speech_processors import SAMPLE_RATE, class_load
-from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, LANG_MAPPER
-
-from transformers import set_seed
-torch.manual_seed(42)
-set_seed(42)
+from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention
 
 
 class Phi4MultimodalDOA(DecoderOnlyAttention):
@@ -42,6 +37,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
     BOW_PREFIX = " "
     ENCODER_SUBSAMPLING_FACTOR = 8
     HOP_LENGTH = 160  # 10ms at 16kHz
+    AUDIO_SPECIAL_TOKEN_ID = 200011  # _AUDIO_SPECIAL_TOKEN_ID in modeling_phi4mm.py
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
@@ -51,7 +47,11 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
     @classmethod
     def load_model(cls, config: SimpleNamespace) -> None:
-        model_path = "microsoft/Phi-4-multimodal-instruct"
+        model_path = getattr(
+            config,
+            "hf_model_name",
+            getattr(config, "model_path", "microsoft/Phi-4-multimodal-instruct"),
+        )
 
         cls.processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
         cls.model = AutoModelForCausalLM.from_pretrained(
@@ -81,30 +81,31 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             return_tensors="pt",
         ).to(self.device)
 
-    def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
+    def _generate(self, waveform: np.ndarray) -> Tuple[List[str], torch.Tensor]:
         """
         Run greedy generation and build the proxy cross-attention matrix.
 
         ``output.attentions`` (use_cache=True) contains the self-attention scores,
         for each step and layer. H is the dimension of the attention heads.
-        ───────────────────────────────────────────────────────────────────────────────────────────
-        output.attentions[0][layer]  → (1, H, input_len, input_len)  ← prefill
-        output.attentions[i][layer]  → (1, H, 1, input_len+i)        ← new token i
 
-        Returns
-        -------
-        List[str]
-            A list of the newly generated tokens (n_new).
-        torch.Tensor
-            Proxy cross-attention scores extracted from the self-attention scores,
-            averaged over heads at ``self.cross_attn_layer`` (prefix + n_new, audio_len).
+        output.attentions[0][layer] -> (1, H, input_len, input_len)  # prefill
+        output.attentions[i][layer] -> (1, H, 1, input_len+i)        # new token i
+
+        Args:
+            waveform (np.ndarray): Rolling audio history.
+
+        Returns:
+            Tuple[List[str], torch.Tensor]:
+                List[str]: A list of the newly generated tokens.
+                torch.Tensor: Proxy cross-attention scores extracted from the self-attention scores
+                with dimension (prefix + generated_tokens, audio_len).
         """
+        inputs = self.build_processor_inputs(waveform)
         input_ids = inputs["input_ids"]  # (1, input_len)
         input_len = input_ids.shape[1]
 
         # Locate audio positions.
-        AUDIO_SPECIAL_TOKEN_ID = 200011  # _AUDIO_SPECIAL_TOKEN_ID in modeling_phi4mm.py
-        audio_positions = (input_ids[0] == AUDIO_SPECIAL_TOKEN_ID).nonzero(as_tuple=True)[0]
+        audio_positions = (input_ids[0] == self.AUDIO_SPECIAL_TOKEN_ID).nonzero(as_tuple=True)[0]
         audio_len = audio_positions.shape[0]
 
         output = self.model.generate(
@@ -127,9 +128,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         # Build proxy cross-attention for the hypothesis (prefix + new_tokens).
         # Prefix rows from the prefill pass
         # output.attentions[0][layer]: (1, H, input_len, input_len)
-        prefill_attn = self.mean_attn_over_heads_and_selected_layers(
-            output.attentions[0]
-        )  # (input_len, input_len)
+        prefill_attn = self.average_attn(output.attentions[0])  # (input_len, input_len)
         prefix_len = len(self.text_history) if self.text_history else 0
         if prefix_len > 0:
             prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
@@ -140,7 +139,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         first_new_row = prefill_attn[-1:, audio_positions] if len(new_tokens) > 0 else \
             torch.zeros(0, max(audio_len, 1), device=self.device)
         new_rows = [
-            self.mean_attn_over_heads_and_selected_layers(step_attn)
+            self.average_attn(step_attn)
             .squeeze(0)[audio_positions]  # (audio_len,)
             for step_attn in output.attentions[1:]
         ]

@@ -39,51 +39,32 @@ LANG_MAPPER = {"en": "English", "it": "Italian", "de": "German", "zh": "Chinese 
 
 class DecoderOnlyAttention(BaseStreamAtt):
     """
-    Generic Decoder-only Attention-based (DOA) policy for SpeechLLMs.
+    Generic Decoder-only Attention-based policy for SpeechLLMs.
 
     The class handles:
-    - Raw-waveform history accumulation.
-    - Greedy generation with ``output_attentions=True``.
-    - Building the proxy cross-attention matrix from self-attention weights.
-    - Applying StreamAtt-based policy on the proxy cross-attention matrix.
+       - Raw-waveform history accumulation.
+       - Greedy generation with ``output_attentions=True``.
+       - Building the proxy cross-attention matrix from self-attention weights.
+        - Applying the StreamAtt-based policy on the proxy cross-attention matrix.
 
-    Subclasses must implement the five abstract methods listed below.
+    The derived class should implement the following methods:
+        - **load_model**: Loads the model and processor.
+        - **build_prompt**: Builds the text prompt to use with audio inputs.
+        - **build_processor_inputs**: Builds model inputs from the rolling audio history.
+        - **_generate**: Generates tokens and proxy cross-attention scores.
+        - **tokens_to_string**: Converts decoded tokens to a plain string.
 
-    Parameters
-    ----------
-    config : SimpleNamespace
-        All fields from :class:`BaseStreamAtt`, plus:
-        cross_attn_layer : int
-            Layer from which to extract attention scores. Default: ``0``.
-        cross_attn_head : int | None
-            Attention head to use. If ``None``, attention scores are averaged
-            over all heads. If set together with
-            ``average_attn_over_layers=True``, the selected head is averaged
-            across layers. Default: ``None``.
-        average_attn_over_layers : bool
-            Whether to average attention over all decoder layers instead of
-            using the single layer selected by ``attn_layer``.
-            Default: ``False``.
-        audio_history_max_duration : int
-            Maximum raw waveform length to keep in the rolling history.
-            Default: ``180`` (seconds).
-        device : torch.device
-            Device to use for model's loading and execution.
-        max_new_tokens : int
-            Maximum tokens to generate per chunk.  Default: ``32``.
-
-    Supported attention-selection modes
-    -----------------------------------
-    - ``attn_head=None`` and ``average_attn_over_layers=True``:
-      average across layers and heads.
-    - ``attn_head=None`` and ``average_attn_over_layers=False``:
-      average across heads within ``attn_layer``.
-    - ``attn_head=<int>`` and ``average_attn_over_layers=True``:
-      average across layers within the selected head.
-
-    An additional mode is also supported for completeness:
-    - ``attn_head=<int>`` and ``average_attn_over_layers=False``:
-      use the selected head within ``attn_layer``.
+    Args:
+       config (SimpleNamespace): Configuration object. The following additional attributes are
+           expected:
+           - **attn_layer (int)**: Layer from which to extract attention scores. Defaults to 0.
+           - **attn_head (int)**: Attention head to use. If not set, attention scores are averaged
+             over all heads.
+           - **average_attn_over_layers (bool)**: Whether to average the selected attention view
+             over all decoder layers. Defaults to True.
+           - **audio_history_max_duration (int)**: Maximum raw waveform length to keep in the
+             rolling history, in seconds. Defaults to 180.
+           - **max_new_tokens (int)**: Maximum tokens to generate per chunk. Defaults to 32.
     """
 
     def __init__(self, config: SimpleNamespace):
@@ -122,16 +103,14 @@ class DecoderOnlyAttention(BaseStreamAtt):
     @abstractmethod
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:
         """
-        Given the *entire* rolling waveform history (float32, 16 kHz), return
-        a ``dict`` of ``torch.Tensor`` inputs ready to be passed to
-        ``self.model.generate(**inputs, …)``.
+        Build processor inputs from the entire rolling waveform history (float32, 16 kHz).
 
-        The tensors must already be on ``self.device``.
+        The returned tensors must already be on ``self.device``.
         """
         ...
 
     @abstractmethod
-    def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
+    def _generate(self, waveform: np.ndarray) -> Tuple[List[str], torch.Tensor]:
         """
         Generate tokens from the given inputs together with the self-attention scores.
 
@@ -158,30 +137,39 @@ class DecoderOnlyAttention(BaseStreamAtt):
         return "".join(self.text_history) if self.text_history else ""
 
     def _select_attn_from_layer(self, layer_attn: torch.Tensor) -> torch.Tensor:
+        # Generation runs one stream at a time, so remove the singleton batch dimension.
+        layer_attn = layer_attn.squeeze(0)
         if self.cross_attn_head is None:
             # Default behavior: average over all heads for this layer.
-            return layer_attn[0].mean(dim=0)
+            return layer_attn.mean(dim=0)
 
-        num_heads = layer_attn.shape[1]
+        num_heads = layer_attn.shape[0]
         if self.cross_attn_head < 0 or self.cross_attn_head >= num_heads:
             raise ValueError(
                 f"Invalid attn_head={self.cross_attn_head}. Layer has {num_heads} heads."
             )
-        return layer_attn[0, self.cross_attn_head]
+        return layer_attn[self.cross_attn_head]
 
-    def mean_attn_over_heads_and_selected_layers(self, step_attn) -> torch.Tensor:
+    def average_attn(self, attn) -> torch.Tensor:
+        """
+        Average or select attentions according to ``attn_layer``, ``attn_head``, and
+        ``average_attn_over_layers``.
+
+        If ``attn_head`` is not set, attention is averaged over heads. If
+        ``average_attn_over_layers`` is set, the selected per-layer attention view is also averaged
+        across layers; otherwise only ``attn_layer`` is used.
+        """
         if self.average_attn_over_layers:
             # Average the per-layer attention view selected by _select_attn_from_layer.
             return torch.stack(
-                [self._select_attn_from_layer(layer_attn) for layer_attn in step_attn],
+                [self._select_attn_from_layer(layer_attn) for layer_attn in attn],
                 dim=0,
             ).mean(dim=0)
-        return self._select_attn_from_layer(step_attn[self.cross_attn_layer])
+        return self._select_attn_from_layer(attn[self.cross_attn_layer])
 
-    def _preprocess(self, waveform: np.float32) -> dict:
+    def _preprocess(self, waveform: np.float32) -> np.ndarray:
         """
-        Append *waveform* to ``self.audio_history``, enforce the maximum length,
-        and delegate to :meth:`build_processor_inputs`.
+        Append *waveform* to ``self.audio_history`` and enforce the maximum length.
         """
         if self.audio_history is None:
             self.audio_history = waveform
@@ -192,4 +180,4 @@ class DecoderOnlyAttention(BaseStreamAtt):
             logger.warning("Audio history exceeded %d samples; trimming.", self.audio_max_len)
             self.audio_history = self.audio_history[-self.audio_max_len:]
 
-        return self.build_processor_inputs(self.audio_history)
+        return self.audio_history

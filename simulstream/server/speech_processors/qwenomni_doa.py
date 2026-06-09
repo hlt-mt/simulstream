@@ -29,10 +29,6 @@ from simulstream.server.speech_processors.base_doa import (
     TEMPLATED_SPEECH_PROMPT,
 )
 
-from transformers import set_seed
-torch.manual_seed(42)
-set_seed(42)
-
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +37,13 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
     """
     Decoder-Only Attention agent for Qwen3-Omni.
 
-    Extra config fields
-    -------------------
-    repetition_penalty : float
-        Repetition penalty for text generation. Default: ``1.05``.
-    temperature : float
-        Temperature for text generation. Default: ``1.0``.
-    no_repeat_ngram_size : int
-        N-gram blocking size for text generation. Default: ``5``.
+    Args:
+       config (SimpleNamespace): Configuration object. The following additional attributes are
+           expected:
+           - **repetition_penalty (float)**: Repetition penalty for text generation.
+           Default: ``1.05``.
+           - **temperature (float)**: Temperature parameter. Default: ``1.0``.
+           - **no_repeat_ngram_size (int)**: Ngram size for text generation. Default: ``5``.
     """
 
     BOW_PREFIX = " "
@@ -73,6 +68,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
     @classmethod
     def load_model(cls, config: SimpleNamespace) -> None:
+        """Load the Qwen3-Omni model and processor."""
         model_name = getattr(
             config,
             "hf_model_name",
@@ -80,6 +76,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         )
         attn_impl = getattr(config, "attn_implementation", "eager")
 
+        cls.processor = Qwen3OmniMoeProcessor.from_pretrained(model_name)
         cls.model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
             model_name,
             torch_dtype="auto",
@@ -87,10 +84,10 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
             attn_implementation=attn_impl,
             enable_audio_output=False,
         )
-        cls.processor = Qwen3OmniMoeProcessor.from_pretrained(model_name)
         cls.model.eval()
 
     def build_prompt(self) -> str:
+        """Build the translation instruction used alongside the audio input."""
         return (
             TEMPLATED_SPEECH_PROMPT
             .replace("{src_lang}", LANG_MAPPER.get(self.src_lang, self.src_lang))
@@ -147,7 +144,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         end_pos = end_pos[end_pos > start_pos][0]
         return torch.arange(start_pos + 1, end_pos, device=input_ids.device)
 
-    def _generate(self, inputs: dict) -> Tuple[List[str], torch.Tensor]:
+    def _generate(self, waveform: np.ndarray) -> Tuple[List[str], torch.Tensor]:
         """
         Run greedy generation and build the proxy cross-attention matrix.
 
@@ -157,14 +154,16 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         output.attentions[0][layer] -> (1, H, input_len, input_len)  # prefill
         output.attentions[i][layer] -> (1, H, 1, input_len+i)        # new token i
 
-        Returns
-        -------
-        List[str]
-            A list of the newly generated tokens (n_new).
-        torch.Tensor
-            Proxy cross-attention scores extracted from the self-attention scores
-            (prefix + n_new, audio_len).
+        Args:
+            waveform (np.ndarray): Rolling audio history.
+
+        Returns:
+            Tuple[List[str], torch.Tensor]:
+                List[str]: A list of the newly generated tokens.
+                torch.Tensor: Proxy cross-attention scores extracted from the self-attention scores
+                with dimension (prefix + generated_tokens, audio_len).
         """
+        inputs = self.build_processor_inputs(waveform)
         input_ids = inputs["input_ids"]  # (1, input_len)
         input_len = input_ids.shape[1]
 
@@ -195,7 +194,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         ]
 
         # Build proxy cross-attention for the hypothesis (prefix + new_tokens).
-        prefill_attn = self.mean_attn_over_heads_and_selected_layers(output.attentions[0])
+        prefill_attn = self.average_attn(output.attentions[0])
         prefix_len = len(self.text_history) if self.text_history else 0
         empty_attn = torch.zeros(0, audio_len, device=self.device)
 
@@ -206,7 +205,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         # is used as the first generated token's proxy audio-attention.
         first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else empty_attn
         new_rows = [
-            self.mean_attn_over_heads_and_selected_layers(step_attn).squeeze(0)[audio_positions]
+            self.average_attn(step_attn).squeeze(0)[audio_positions]
             for step_attn in output.attentions[1:]
         ]
         subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else empty_attn
