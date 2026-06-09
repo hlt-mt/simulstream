@@ -41,7 +41,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
 
     BOW_PREFIX = " "
     ENCODER_SUBSAMPLING_FACTOR = 8
-    HOP_LENGTH = 160    # 10ms at 16kHz
+    HOP_LENGTH = 160  # 10ms at 16kHz
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
