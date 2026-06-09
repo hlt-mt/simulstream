@@ -60,6 +60,10 @@ class BaseStreamAtt(BaseSpeechProcessor):
                  context for next predictions.
            - **audio_subsampling_factor (int)**: Subsampling factor of the model, if any.
              Defaults to 1.
+           - **mel_hop_samples (int)**: Number of raw waveform samples per mel frame.
+             Defaults to 160, i.e. 10ms at 16kHz.
+           - **use_raw_audio_history (bool)**: Returns whether ``audio_history`` stores raw
+             waveform samples rather than processed frames. Defaults to False.
            - **text_history_max_len (int)**: The maximum length of the textual history after which
              the current content is cut. Defaults to 128.
            - **cross_attention_layer (int)**: Layer from which to extract the cross-attention from.
@@ -77,6 +81,11 @@ class BaseStreamAtt(BaseSpeechProcessor):
         text_history_cls = class_load(text_history_config.type)
         self.text_history_method = text_history_cls(text_history_config)
         self.audio_subsampling_factor = getattr(self.config, "audio_subsampling_factor", 1)
+        self.mel_hop_samples = getattr(self.config, "mel_hop_samples", 160)
+        self.use_raw_audio_history = getattr(self.config, "use_raw_audio_history", False)
+        self.frames_to_audio_history = self.audio_subsampling_factor
+        if self.use_raw_audio_history:
+            self.frames_to_audio_history *= self.mel_hop_samples
         self.text_history_max_len = getattr(self.config, "text_history_max_len", 128)
         self.cross_attn_layer = getattr(self.config, "cross_attention_layer", 3)
         self.cutoff_frame_num = getattr(self.config, "cutoff_frame_num", 2)
@@ -173,8 +182,8 @@ class BaseStreamAtt(BaseSpeechProcessor):
             # Only one token: use the unique most attended frame
             earliest_attended_idx = most_attended_idxs[0]
 
-        # Multiply by the subsampling factor to recover the original number of frames
-        frames_to_cut = earliest_attended_idx * self.audio_subsampling_factor
+        # Multiply by the number of frames/samples corresponding to the audio history
+        frames_to_cut = earliest_attended_idx * self.frames_to_audio_history
 
         # Cut the unattended audio features
         self.audio_history = self.audio_history[frames_to_cut:]
