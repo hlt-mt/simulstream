@@ -53,9 +53,9 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
     BOW_PREFIX = " "
     AUDIO_TOKEN_STRIDE = 640
-    AUDIO_TOKEN_INDEX = 151675   # <|audio_pad|>
+    AUDIO_TOKEN_INDEX = 151675  # <|audio_pad|>
     AUDIO_START_TOKEN_ID = 151669  # <|audio_start|>
-    AUDIO_END_TOKEN_ID = 151670    # <|audio_end|>
+    AUDIO_END_TOKEN_ID = 151670  # <|audio_end|>
     SYSTEM_PROMPT = (
         "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of "
         "perceiving auditory and visual inputs, as well as generating text and speech."
