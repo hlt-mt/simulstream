@@ -35,6 +35,7 @@ TEMPLATED_SPEECH_PROMPT = \
      "translation, without any additional explanations or commentary. Please translate the "
      "provided {src_lang} speech into {tgt_lang}:")
 
+
 def get_language_name(code: str) -> str:
     """Return the language name for an ISO 639-1 code, falling back to the code itself."""
     lang = pycountry.languages.get(alpha_2=code)
