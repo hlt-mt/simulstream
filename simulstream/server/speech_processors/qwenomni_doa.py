@@ -25,7 +25,7 @@ from transformers import Qwen3OmniMoeForConditionalGeneration, Qwen3OmniMoeProce
 from simulstream.server.speech_processors import SAMPLE_RATE, class_load
 from simulstream.server.speech_processors.base_doa import (
     DecoderOnlyAttention,
-    LANG_MAPPER,
+    get_language_name,
     TEMPLATED_SPEECH_PROMPT,
 )
 
@@ -90,8 +90,8 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         """Build the translation instruction used alongside the audio input."""
         return (
             TEMPLATED_SPEECH_PROMPT
-            .replace("{src_lang}", LANG_MAPPER.get(self.src_lang, self.src_lang))
-            .replace("{tgt_lang}", LANG_MAPPER.get(self.tgt_lang, self.tgt_lang))
+            .replace("{src_lang}", get_language_name(self.src_lang))
+            .replace("{tgt_lang}", get_language_name(self.tgt_lang))
         )
 
     def build_processor_inputs(self, waveform: np.ndarray) -> dict:

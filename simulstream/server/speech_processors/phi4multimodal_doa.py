@@ -20,7 +20,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
 from simulstream.server.speech_processors import SAMPLE_RATE, class_load
-from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention
+from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, get_language_name
 
 
 class Phi4MultimodalDOA(DecoderOnlyAttention):
@@ -65,7 +65,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         cls.generation_config = GenerationConfig.from_pretrained(model_path)
 
     def build_prompt(self) -> str:
-        filled_prompt = f"Translate the audio to {LANG_MAPPER[self.tgt_lang]}."
+        filled_prompt = f"Translate the audio to {get_language_name(self.tgt_lang)}."
         raw_prefix = self.build_raw_text_prefix()
         prompt = (
             f"{self._USER_START}{self._AUDIO_TOKEN}"

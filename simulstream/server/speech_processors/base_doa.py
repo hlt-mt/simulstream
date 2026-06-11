@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from typing import List, Tuple
 
 import numpy as np
+import pycountry
 import torch
 
 from simulstream.server.speech_processors import SAMPLE_RATE
@@ -34,7 +35,10 @@ TEMPLATED_SPEECH_PROMPT = \
      "translation, without any additional explanations or commentary. Please translate the "
      "provided {src_lang} speech into {tgt_lang}:")
 
-LANG_MAPPER = {"en": "English", "it": "Italian", "de": "German", "zh": "Chinese (simplified)"}
+def get_language_name(code: str) -> str:
+    """Return the language name for an ISO 639-1 code, falling back to the code itself."""
+    lang = pycountry.languages.get(alpha_2=code)
+    return lang.name if lang is not None else code
 
 
 class DecoderOnlyAttention(BaseStreamAtt):
