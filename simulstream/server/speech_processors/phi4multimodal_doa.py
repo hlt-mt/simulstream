@@ -13,7 +13,7 @@
 # limitations under the License
 
 from types import SimpleNamespace
-from typing import List, Tuple
+from typing import List, Any, Dict, Tuple
 
 import numpy as np
 import torch
@@ -79,35 +79,13 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             text=self.build_prompt(),
             audios=[(waveform, SAMPLE_RATE)],
             return_tensors="pt",
-        ).to(self.device)
+        )
 
-    def _generate(self, waveform: np.ndarray) -> Tuple[List[str], torch.Tensor]:
-        """
-        Run greedy generation and build the proxy cross-attention matrix.
+    def tokens_to_string(self, tokens: List[str]) -> str:
+        return "".join(tokens)
 
-        ``output.attentions`` (use_cache=True) contains the self-attention scores,
-        for each step and layer. H is the dimension of the attention heads.
-
-        output.attentions[0][layer] -> (1, H, input_len, input_len)  # prefill
-        output.attentions[i][layer] -> (1, H, 1, input_len+i)        # new token i
-
-        Args:
-            waveform (np.ndarray): Rolling audio history.
-
-        Returns:
-            Tuple[List[str], torch.Tensor]:
-                List[str]: A list of the newly generated tokens.
-                torch.Tensor: Proxy cross-attention scores extracted from the self-attention scores
-                with dimension (prefix + generated_tokens, audio_len).
-        """
-        inputs = self.build_processor_inputs(waveform)
-        input_ids = inputs["input_ids"]  # (1, input_len)
-        input_len = input_ids.shape[1]
-
-        # Locate audio positions.
-        audio_positions = (input_ids[0] == self.AUDIO_SPECIAL_TOKEN_ID).nonzero(as_tuple=True)[0]
-        audio_len = audio_positions.shape[0]
-
+    def _do_generate(self, inputs: Dict[str, Any]) -> Tuple[List[str], List[torch.Tensor]]:
+        input_len = inputs["input_ids"].shape[1]
         output = self.model.generate(
             **inputs,
             max_new_tokens=self.max_new_tokens,
@@ -117,40 +95,9 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             return_dict_in_generate=True,
             do_sample=False,
         )
+        new_tokens = self.processor.tokenizer.convert_ids_to_tokens(
+            output.sequences[0, input_len:], skip_special_tokens=True)
+        return new_tokens, output.attentions
 
-        # Decode newly generated tokens only.
-        new_ids = output.sequences[:, input_len:]  # (1, n_new)
-        new_tokens = [
-            self.processor.tokenizer.decode([t], skip_special_tokens=True)
-            for t in new_ids[0]
-        ]
-
-        # Build proxy cross-attention for the hypothesis (prefix + new_tokens).
-        # Prefix rows from the prefill pass
-        # output.attentions[0][layer]: (1, H, input_len, input_len)
-        prefill_attn = self.average_attn(output.attentions[0])  # (input_len, input_len)
-        prefix_len = len(self.text_history) if self.text_history else 0
-        if prefix_len > 0:
-            prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
-        else:
-            prefix_rows = torch.zeros(0, max(audio_len, 1), device=self.device)
-        # The prefill pass predicts the first generated token, so we use the last prompt row
-        # as its proxy audio-attention. Subsequent generated tokens come from later decode steps.
-        first_new_row = prefill_attn[-1:, audio_positions] if len(new_tokens) > 0 else \
-            torch.zeros(0, max(audio_len, 1), device=self.device)
-        new_rows = [
-            self.average_attn(step_attn)
-            .squeeze(0)[audio_positions]  # (audio_len,)
-            for step_attn in output.attentions[1:]
-        ]
-        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else \
-            torch.zeros(0, max(audio_len, 1), device=self.device)
-        new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
-
-        cross_attn = torch.cat([prefix_rows, new_attn], dim=0)  # (n_prefix + n_new, audio_len)
-        cross_attn = self.normalize_attn(cross_attn)
-
-        return new_tokens, cross_attn
-
-    def tokens_to_string(self, tokens: List[str]) -> str:
-        return "".join(tokens)
+    def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
+        return (input_ids[0] == self.AUDIO_SPECIAL_TOKEN_ID).nonzero(as_tuple=True)[0]

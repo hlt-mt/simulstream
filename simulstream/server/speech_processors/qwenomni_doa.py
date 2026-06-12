@@ -14,11 +14,10 @@
 
 import logging
 from types import SimpleNamespace
-from typing import List, Tuple
+from typing import List, Dict, Any, Tuple
 
 import numpy as np
 import torch
-
 from qwen_omni_utils import process_mm_info
 from transformers import Qwen3OmniMoeForConditionalGeneration, Qwen3OmniMoeProcessor
 
@@ -133,6 +132,10 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         )
         return inputs.to(self.device).to(self.model.dtype)
 
+    def tokens_to_string(self, tokens: List[str]) -> str:
+        """Convert decoded tokens to the emitted text string."""
+        return "".join(tokens)
+
     def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Return token positions corresponding to the encoded audio span."""
         audio_positions = (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]
@@ -144,33 +147,8 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         end_pos = end_pos[end_pos > start_pos][0]
         return torch.arange(start_pos + 1, end_pos, device=input_ids.device)
 
-    def _generate(self, waveform: np.ndarray) -> Tuple[List[str], torch.Tensor]:
-        """
-        Run greedy generation and build the proxy cross-attention matrix.
-
-        Qwen3-Omni returns the thinker self-attention scores for each decode
-        step and layer. H is the dimension of the attention heads.
-
-        output.attentions[0][layer] -> (1, H, input_len, input_len)  # prefill
-        output.attentions[i][layer] -> (1, H, 1, input_len+i)        # new token i
-
-        Args:
-            waveform (np.ndarray): Rolling audio history.
-
-        Returns:
-            Tuple[List[str], torch.Tensor]:
-                List[str]: A list of the newly generated tokens.
-                torch.Tensor: Proxy cross-attention scores extracted from the self-attention scores
-                with dimension (prefix + generated_tokens, audio_len).
-        """
-        inputs = self.build_processor_inputs(waveform)
-        input_ids = inputs["input_ids"]  # (1, input_len)
-        input_len = input_ids.shape[1]
-
-        # Locate audio positions.
-        audio_positions = self._find_audio_positions(input_ids)
-        audio_len = audio_positions.shape[0]
-
+    def _do_generate(self, inputs: Dict[str, Any]) -> Tuple[List[str], List[torch.Tensor]]:
+        input_len = inputs["input_ids"].shape[1]
         output = self.model.generate(
             **inputs,
             use_audio_in_video=True,
@@ -185,36 +163,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         )
         if isinstance(output, tuple):
             output = output[0]
-
-        # Decode newly generated tokens only.
-        new_ids = output.sequences[:, input_len:]
-        new_tokens = [
-            self.processor.tokenizer.decode([token_id], skip_special_tokens=True)
-            for token_id in new_ids[0]
-        ]
-
-        # Build proxy cross-attention for the hypothesis (prefix + new_tokens).
-        prefill_attn = self.average_attn(output.attentions[0])
-        prefix_len = len(self.text_history) if self.text_history else 0
-        empty_attn = torch.zeros(0, audio_len, device=self.device)
-
-        # Prefix rows come from the prefill pass.
-        prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions] \
-            if prefix_len > 0 else empty_attn
-        # The prefill pass predicts the first generated token, so its last prompt row
-        # is used as the first generated token's proxy audio-attention.
-        first_new_row = prefill_attn[-1:, audio_positions] if new_tokens else empty_attn
-        new_rows = [
-            self.average_attn(step_attn).squeeze(0)[audio_positions]
-            for step_attn in output.attentions[1:]
-        ]
-        subsequent_new_attn = torch.stack(new_rows, dim=0) if new_rows else empty_attn
-        new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
-
-        cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
-        cross_attn = self.normalize_attn(cross_attn)
-        return new_tokens, cross_attn
-
-    def tokens_to_string(self, tokens: List[str]) -> str:
-        """Convert decoded tokens to the emitted text string."""
-        return "".join(tokens)
+        new_tokens = self.processor.tokenizer.convert_ids_to_tokens(
+            output.sequences[0, input_len:], skip_special_tokens=True)
+        return new_tokens, output.attentions

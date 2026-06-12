@@ -15,7 +15,7 @@
 import logging
 from abc import abstractmethod
 from types import SimpleNamespace
-from typing import List, Tuple
+from typing import List, Tuple, Any, Dict
 
 import numpy as np
 import pycountry
@@ -50,14 +50,15 @@ class DecoderOnlyAttention(BaseStreamAtt):
        - Raw-waveform history accumulation.
        - Greedy generation with ``output_attentions=True``.
        - Building the proxy cross-attention matrix from self-attention weights.
-        - Applying the StreamAtt-based policy on the proxy cross-attention matrix.
+       - Applying the StreamAtt-based policy on the proxy cross-attention matrix.
 
     The derived class should implement the following methods:
         - **load_model**: Loads the model and processor.
         - **build_prompt**: Builds the text prompt to use with audio inputs.
         - **build_processor_inputs**: Builds model inputs from the rolling audio history.
-        - **_generate**: Generates tokens and proxy cross-attention scores.
+        - **_do_generate**: Returns newly-generated tokens and self-attention scores.
         - **tokens_to_string**: Converts decoded tokens to a plain string.
+        - **_find_audio_positions**: Returns the indices of audio tokens.
 
     Args:
        config (SimpleNamespace): Configuration object. The following additional attributes are
@@ -106,15 +107,30 @@ class DecoderOnlyAttention(BaseStreamAtt):
         ...
 
     @abstractmethod
-    def build_processor_inputs(self, waveform: np.ndarray) -> dict:
+    def build_processor_inputs(self, waveform: np.ndarray) -> Any:
         """
         Build processor inputs from the entire rolling waveform history (float32, 16 kHz).
-
-        The returned tensors must already be on ``self.device``.
         """
         ...
 
     @abstractmethod
+    def _do_generate(self, inputs: Dict[str, Any]) -> Tuple[List[str], List[torch.Tensor]]:
+        """
+        Runs the actual generation from the underlying model and returns the generated tokens and
+        the corresponding self-attention scores.
+        """
+        ...
+
+    @abstractmethod
+    def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """Return token positions corresponding to the encoded audio span."""
+        ...
+
+    @abstractmethod
+    def tokens_to_string(self, tokens: List[str]) -> str:
+        """Convert a list of decoded tokens to a plain output string."""
+        ...
+
     def _generate(self, waveform: np.ndarray) -> Tuple[List[str], torch.Tensor]:
         """
         Generate tokens from the given inputs together with the self-attention scores.
@@ -125,12 +141,42 @@ class DecoderOnlyAttention(BaseStreamAtt):
                 torch.Tensor: Self-attention scores between speech and text with dimension
                 (token_len, audio_len).
         """
-        ...
+        inputs = self.build_processor_inputs(waveform).to(self.device)
+        input_ids = inputs["input_ids"]  # (1, input_len)
+        input_len = input_ids.shape[1]
 
-    @abstractmethod
-    def tokens_to_string(self, tokens: List[str]) -> str:
-        """Convert a list of decoded tokens to a plain output string."""
-        ...
+        audio_positions = self._find_audio_positions(input_ids)
+        audio_len = audio_positions.shape[0]
+
+        # Run the actual generate on the underlying model
+        new_tokens, attentions = self._do_generate(inputs)
+
+        # Build proxy cross-attention for the hypothesis (prefix + new_tokens)
+        prefill_attn = self.average_attn(attentions[0])
+        prefix_len = len(self.text_history) if self.text_history else 0
+        if prefix_len > 0:
+            # Prefix rows come from the prefill pass
+            prefix_rows = prefill_attn[input_len - prefix_len:, :][:, audio_positions]
+        else:
+            prefix_rows = torch.zeros(0, audio_len, device=self.device)
+
+        if new_tokens:
+            # The prefill pass predicts the first generated token, so its last row corresponds to
+            # the first generated token's proxy audio-attention
+            first_new_row = prefill_attn[-1:, audio_positions]
+            # Other tokens' attention is present in each generation step
+            new_rows = [
+                self.average_attn(step_attn).squeeze(0)[audio_positions]
+                for step_attn in attentions[1:]
+            ]
+            subsequent_new_attn = torch.stack(new_rows, dim=0)
+            new_attn = torch.cat([first_new_row, subsequent_new_attn], dim=0)
+        else:
+            new_attn = torch.zeros(0, audio_len, device=self.device)
+
+        cross_attn = torch.cat([prefix_rows, new_attn], dim=0)
+        cross_attn = self.normalize_attn(cross_attn)
+        return new_tokens, cross_attn
 
     def set_target_language(self, language: str) -> None:
         self.tgt_lang = language
