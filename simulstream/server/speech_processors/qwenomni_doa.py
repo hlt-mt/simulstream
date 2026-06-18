@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-import logging
 from types import SimpleNamespace
 from typing import List, Dict, Any, Tuple
 
@@ -21,7 +20,7 @@ import torch
 from qwen_omni_utils import process_mm_info
 from transformers import Qwen3OmniMoeForConditionalGeneration, Qwen3OmniMoeProcessor
 
-from simulstream.server.speech_processors import SAMPLE_RATE, class_load
+from simulstream.server.speech_processors import SAMPLE_RATE
 from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, get_language_name
 
 

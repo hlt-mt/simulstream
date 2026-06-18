@@ -19,7 +19,7 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
-from simulstream.server.speech_processors import SAMPLE_RATE, class_load
+from simulstream.server.speech_processors import SAMPLE_RATE
 from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, get_language_name
 
 
