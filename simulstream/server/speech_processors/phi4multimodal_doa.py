@@ -34,15 +34,12 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
     _END_TOKEN = "<|end|>"
     _ASST_START = "<|assistant|>"
 
-    BOW_PREFIX = " "
     ENCODER_SUBSAMPLING_FACTOR = 8
     HOP_LENGTH = 160  # 10ms at 16kHz
     AUDIO_SPECIAL_TOKEN_ID = 200011  # _AUDIO_SPECIAL_TOKEN_ID in modeling_phi4mm.py
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
-        text_history_cls = class_load(self.text_history_config.type)
-        self.text_history_method = text_history_cls(self.text_history_config, self.BOW_PREFIX)
         self.audio_subsampling_factor = self.ENCODER_SUBSAMPLING_FACTOR * self.HOP_LENGTH
 
     @classmethod
@@ -65,7 +62,7 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
         cls.generation_config = GenerationConfig.from_pretrained(model_path)
 
     def build_prompt(self) -> str:
-        filled_prompt = f"Translate the audio to {get_language_name(self.tgt_lang)}."
+        filled_prompt = self.prompt.replace("{tgt_lang}", get_language_name(self.tgt_lang))
         raw_prefix = self.build_raw_text_prefix()
         prompt = (
             f"{self._USER_START}{self._AUDIO_TOKEN}"

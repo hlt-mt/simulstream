@@ -22,11 +22,7 @@ from qwen_omni_utils import process_mm_info
 from transformers import Qwen3OmniMoeForConditionalGeneration, Qwen3OmniMoeProcessor
 
 from simulstream.server.speech_processors import SAMPLE_RATE, class_load
-from simulstream.server.speech_processors.base_doa import (
-    DecoderOnlyAttention,
-    get_language_name,
-    TEMPLATED_SPEECH_PROMPT,
-)
+from simulstream.server.speech_processors.base_doa import DecoderOnlyAttention, get_language_name
 
 
 class Qwen3OmniDOA(DecoderOnlyAttention):
@@ -42,7 +38,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
            - **no_repeat_ngram_size (int)**: Ngram size for text generation. Default: ``5``.
     """
 
-    BOW_PREFIX = " "
     AUDIO_TOKEN_STRIDE = 640
     AUDIO_TOKEN_INDEX = 151675  # <|audio_pad|>
     AUDIO_START_TOKEN_ID = 151669  # <|audio_start|>
@@ -54,9 +49,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
 
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
-        self.bow_prefix = self.BOW_PREFIX
-        text_history_cls = class_load(self.text_history_config.type)
-        self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = self.AUDIO_TOKEN_STRIDE
         self.repetition_penalty = getattr(self.config, "repetition_penalty", 1.05)
         self.temperature = getattr(self.config, "temperature", 1.0)
@@ -85,7 +77,7 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
     def build_prompt(self) -> str:
         """Build the translation instruction used alongside the audio input."""
         return (
-            TEMPLATED_SPEECH_PROMPT
+            self.prompt
             .replace("{src_lang}", get_language_name(self.src_lang))
             .replace("{tgt_lang}", get_language_name(self.tgt_lang))
         )

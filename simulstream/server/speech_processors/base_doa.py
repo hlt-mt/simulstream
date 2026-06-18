@@ -28,15 +28,6 @@ from simulstream.server.speech_processors.base_streamatt import BaseStreamAtt
 logger = logging.getLogger(__name__)
 
 
-TEMPLATED_SPEECH_PROMPT = \
-    ("You are a professional {src_lang}-to-{tgt_lang} translator. Your goal is to accurately "
-     "convey the meaning and nuances of the original {src_lang} speech while adhering to "
-     "{tgt_lang} grammar, vocabulary, and cultural sensitivities. Use precise terminology and a "
-     "tone appropriate for academic or instructional materials. Produce only the {tgt_lang} "
-     "translation, without any additional explanations or commentary. Please translate the "
-     "provided {src_lang} speech into {tgt_lang}:")
-
-
 def get_language_name(code: str) -> str:
     """Return the language name for an ISO 639-1 code, falling back to the code itself."""
     lang = pycountry.languages.get(alpha_2=code)
@@ -87,6 +78,8 @@ class DecoderOnlyAttention(BaseStreamAtt):
         self.audio_history_max_duration = getattr(self.config, "audio_history_max_duration", 180)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_new_tokens = getattr(self.config, "max_new_tokens", 32)
+        self.prompt = getattr(self.config, "prompt", "Translate the audio to {tgt_lang}:")
+        logger.debug("Prompt:\n%s", self.prompt)
 
     @property
     def audio_max_len(self) -> int:

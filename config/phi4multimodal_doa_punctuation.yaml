@@ -12,3 +12,4 @@ detokenizer_type: "hf"
 hf_model_name: "microsoft/Phi-4-multimodal-instruct"
 word_level_postprocess: True  # Disable if character-level language
 max_new_tokens: 32
+bow_prefix: " "
