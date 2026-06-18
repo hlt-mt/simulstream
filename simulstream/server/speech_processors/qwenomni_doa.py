@@ -29,9 +29,6 @@ from simulstream.server.speech_processors.base_doa import (
 )
 
 
-logger = logging.getLogger(__name__)
-
-
 class Qwen3OmniDOA(DecoderOnlyAttention):
     """
     Decoder-Only Attention agent for Qwen3-Omni.

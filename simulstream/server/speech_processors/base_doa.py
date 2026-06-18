@@ -24,6 +24,7 @@ import torch
 from simulstream.server.speech_processors import SAMPLE_RATE
 from simulstream.server.speech_processors.base_streamatt import BaseStreamAtt
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +40,12 @@ TEMPLATED_SPEECH_PROMPT = \
 def get_language_name(code: str) -> str:
     """Return the language name for an ISO 639-1 code, falling back to the code itself."""
     lang = pycountry.languages.get(alpha_2=code)
-    return lang.name if lang is not None else code
+    if lang is not None:
+        return lang.name
+    else:
+        logger.warning(f"Language code '{code}' not found in the language list. Using language "
+                       f"code directly in the prompt, but this can lead to unexpected behavior.")
+        return code
 
 
 class DecoderOnlyAttention(BaseStreamAtt):
