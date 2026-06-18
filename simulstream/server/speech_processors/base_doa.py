@@ -205,8 +205,8 @@ class DecoderOnlyAttention(BaseStreamAtt):
         ``average_attn_over_layers``.
 
         If ``attn_head`` is not set, attention is averaged over heads. If
-        ``average_attn_over_layers`` is set, the selected per-layer attention view is also averaged across
-        layers; otherwise only ``attn_layer`` is used.
+        ``average_attn_over_layers`` is set, the selected per-layer attention view is also
+        averaged across layers; otherwise only ``attn_layer`` is used.
         """
         if self.average_attn_over_layers:
             # Average the per-layer attention view selected by _select_attn_from_layer.
