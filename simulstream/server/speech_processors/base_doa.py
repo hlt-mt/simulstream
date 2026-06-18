@@ -96,12 +96,11 @@ class DecoderOnlyAttention(BaseStreamAtt):
     @abstractmethod
     def load_model(self, config: SimpleNamespace) -> None:
         """
-        Load the model and processor from *config* and assign them to
-        ``self.model`` and ``self.processor``.
+        Load the model and processor from *config* and assign them to ``self.model`` and
+        ``self.processor``.
 
-        The model **must** be loaded with ``output_attentions=True`` (or the
-        equivalent flag for the architecture) and
-        ``_attn_implementation="eager"``.
+        The model **must** be loaded with ``output_attentions=True`` (or the equivalent flag for
+        the architecture) and ``_attn_implementation="eager"``.
         """
         ...
 
@@ -213,8 +212,8 @@ class DecoderOnlyAttention(BaseStreamAtt):
         ``average_attn_over_layers``.
 
         If ``attn_head`` is not set, attention is averaged over heads. If
-        ``average_attn_over_layers`` is set, the selected per-layer attention view is also averaged
-        across layers; otherwise only ``attn_layer`` is used.
+        ``average_attn_over_layers`` is set, the selected per-layer attention view is also averaged across
+        layers; otherwise only ``attn_layer`` is used.
         """
         if self.average_attn_over_layers:
             # Average the per-layer attention view selected by _select_attn_from_layer.
