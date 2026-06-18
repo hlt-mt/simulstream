@@ -73,10 +73,10 @@ class BaseStreamAtt(BaseSpeechProcessor):
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
         self.config = config
-        self.text_history_config = self.config.text_history
-        text_history_cls = class_load(self.text_history_config.type)
+        text_history_config = self.config.text_history
+        text_history_cls = class_load(text_history_config.type)
         self.bow_prefix = getattr(self.config, "bow_prefix", BOW_PREFIX)
-        self.text_history_method = text_history_cls(self.text_history_config, self.bow_prefix)
+        self.text_history_method = text_history_cls(text_history_config, self.bow_prefix)
         self.audio_subsampling_factor = getattr(self.config, "audio_subsampling_factor", 1)
         self.text_history_max_len = getattr(self.config, "text_history_max_len", 128)
         self.cross_attn_layer = getattr(self.config, "cross_attention_layer", 3)
