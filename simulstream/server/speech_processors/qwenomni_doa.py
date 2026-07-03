@@ -120,10 +120,6 @@ class Qwen3OmniDOA(DecoderOnlyAttention):
         )
         return inputs.to(self.device).to(self.model.dtype)
 
-    def tokens_to_string(self, tokens: List[str]) -> str:
-        """Convert decoded tokens to the emitted text string."""
-        return "".join(tokens)
-
     def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Return token positions corresponding to the encoded audio span."""
         audio_positions = (input_ids[0] == self.AUDIO_TOKEN_INDEX).nonzero(as_tuple=True)[0]

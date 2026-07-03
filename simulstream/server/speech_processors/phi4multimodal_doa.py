@@ -78,9 +78,6 @@ class Phi4MultimodalDOA(DecoderOnlyAttention):
             return_tensors="pt",
         )
 
-    def tokens_to_string(self, tokens: List[str]) -> str:
-        return "".join(tokens)
-
     def _do_generate(self, inputs: Dict[str, Any]) -> Tuple[List[str], List[torch.Tensor]]:
         input_len = inputs["input_ids"].shape[1]
         output = self.model.generate(

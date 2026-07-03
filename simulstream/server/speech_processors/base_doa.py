@@ -54,7 +54,6 @@ class DecoderOnlyAttention(BaseStreamAtt):
         - **build_prompt**: Builds the text prompt to use with audio inputs.
         - **build_processor_inputs**: Builds model inputs from the rolling audio history.
         - **_do_generate**: Returns newly-generated tokens and self-attention scores.
-        - **tokens_to_string**: Converts decoded tokens to a plain string.
         - **_find_audio_positions**: Returns the indices of audio tokens.
 
     Args:
@@ -122,11 +121,6 @@ class DecoderOnlyAttention(BaseStreamAtt):
     @abstractmethod
     def _find_audio_positions(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Return token positions corresponding to the encoded audio span."""
-        ...
-
-    @abstractmethod
-    def tokens_to_string(self, tokens: List[str]) -> str:
-        """Convert a list of decoded tokens to a plain output string."""
         ...
 
     def _generate(self, waveform: np.ndarray) -> Tuple[List[str], torch.Tensor]:
@@ -230,3 +224,7 @@ class DecoderOnlyAttention(BaseStreamAtt):
             self.audio_history = self.audio_history[-self.audio_max_len:]
 
         return self.audio_history
+
+    def tokens_to_string(self, tokens: List[str]) -> str:
+        """Convert a list of decoded tokens to a plain output string."""
+        return "".join(tokens)
