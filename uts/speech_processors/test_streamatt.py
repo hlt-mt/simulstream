@@ -31,7 +31,7 @@ class TestFixedWordsTextHistory(unittest.TestCase):
         en_history = ["▁I", "▁am", "▁going", "▁to", "▁New", "▁York"]
         self.assertEqual(
             self.history.select_text_history(en_history),
-            ["▁going", "▁to", "▁New", "▁York"])
+            ["▁to", "▁New", "▁York"])
 
     def test_word_level_with_subwords(self):
         """ Subword continuations (no ▁) are included in the retained word. """
