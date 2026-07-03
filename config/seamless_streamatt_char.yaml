@@ -1,0 +1,13 @@
+type: "simulstream.server.speech_processors.seamless_streamatt.SeamlessStreamAtt"
+text_history:
+  type: "simulstream.server.speech_processors.base_streamatt.FixedCharsTextHistory"
+  history_chars: 20
+audio_history_max_duration: 360  # Maximum length for the audio buffer, in seconds
+text_history_max_len: 128
+hf_model_name: "facebook/hf-seamless-m4t-medium"
+seamless_version: 1
+speech_chunk_size: 0.5  # seconds
+cross_attn_layer: 3
+cutoff_frame_num: 4
+detokenizer_type: "hf"
+word_level_postprocess: False  # Must be False for character-level languages
