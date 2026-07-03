@@ -123,7 +123,7 @@ class MWERSegmenterBasedLatencyScorer(LatencyScorer):
                     encoded = [" ".join(self.segmenter.encode(p)) for p in pieces]
                     tokenized_text.append(" ### ".join(encoded))
                 else:
-                    tokenized_text.append(" ".join(self.segmenter.encode(text[i].strip())))
+                    tokenized_text.append(" ".join(self.segmenter.encode(text[i])))
             return "\n".join(tokenized_text)
         else:
             return "\n".join(text)
@@ -132,24 +132,6 @@ class MWERSegmenterBasedLatencyScorer(LatencyScorer):
         resegmented_samples = []
         for sample in samples:
             assert sample.reference is not None, "Cannot realign hypothesis to missing reference"
-
-            ideal_delays = sample.hypothesis.ideal_delays
-            computational_aware_delays = sample.hypothesis.computational_aware_delays
-            if self.segmenter is not None:
-                # _tokenize strips final_text; trim delays to match the stripped version
-                final_text = sample.hypothesis.final_text
-                leading = len(final_text) - len(final_text.lstrip())
-                trailing = len(final_text) - len(final_text.rstrip())
-                end = len(ideal_delays) - trailing if trailing > 0 else None
-                ideal_delays = ideal_delays[leading:end]
-                computational_aware_delays = computational_aware_delays[leading:end]
-
-            if not ideal_delays:
-                resegmented_samples.append(ResegmentedLatencyScoringSample(
-                    sample.audio_name,
-                    [OutputWithDelays("", [], []) for _ in sample.reference],
-                    sample.reference))
-                continue
 
             hypo = self._tokenize([sample.hypothesis.final_text])
             refs = self._tokenize(
@@ -166,10 +148,10 @@ class MWERSegmenterBasedLatencyScorer(LatencyScorer):
                     hypo.replace(" ", "").replace("_", " ") for hypo in resegmented_hypos]
 
             ideal_delays_splits = self._split_delays_by_segmented_text(
-                ideal_delays,
+                sample.hypothesis.ideal_delays,
                 resegmented_hypos)
             computational_aware_delays_splits = self._split_delays_by_segmented_text(
-                computational_aware_delays,
+                sample.hypothesis.computational_aware_delays,
                 resegmented_hypos)
             assert len(ideal_delays_splits) == len(computational_aware_delays_splits)
 
