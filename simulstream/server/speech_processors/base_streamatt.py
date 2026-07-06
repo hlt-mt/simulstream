@@ -297,6 +297,27 @@ class FixedWordsTextHistory:
         return new_history[::-1]
 
 
+class FixedCharsTextHistory:
+    """
+    Character-count-based textual history selection method that retains a pre-defined number of
+    tokens in the history (*history_chars*).
+
+    Recommended for character-level languages (e.g., Chinese, Japanese) where word-boundary
+    markers (▁) are sparse, making :class:`FixedWordsTextHistory` ineffective: when few tokens
+    carry a BOW prefix, the word counter never reaches *history_words*, so the history is never
+    trimmed and the audio history grows without bound, causing AlignAtt to cut all new tokens.
+
+    Args:
+        config (SimpleNamespace): Configuration object with an optional attribute:
+            - **history_chars (int)**: Number of tokens to retain. Defaults to 20.
+    """
+    def __init__(self, config: SimpleNamespace):
+        self.history_chars = getattr(config, "history_chars", 20)
+
+    def select_text_history(self, text_history: List[str]) -> List[str]:
+        return text_history[-self.history_chars:]
+
+
 class PunctuationTextHistory:
     """
     Punctuation textual history selection method that retains the sentence
