@@ -1,7 +1,7 @@
 # Baseline Results for Each Language Pair of MuST-C
 
 Below we report the scores for each language pair for the systems reported [in the paper](https://arxiv.org/abs/2512.17648).
-The reported scores represent: Quality (COMET, BLUE), latency (StreamLAAL, StreamLAAL\_CA), flickering (NE), and computational cost (RTF) of re-translation and incremental speech processors (Speech P.) with Canary and SeamlessM4T v1 medium. The column w/f/t refers to varying, the window length (w) for sliding window, the number of frames (f) for StreamAtt, and the VAD probability threshold (t) for VAD-based sliding window.
+The reported scores represent: Quality (COMET, BLUE), latency (StreamLAAL, StreamLAAL\_CA), flickering (NE), and computational cost (RTF) of retranslation and incremental speech processors (Speech P.) with Canary and SeamlessM4T v1 medium. The column w/f/t refers to varying the window length (w) for sliding window, the number of frames (f) for StreamAtt, and the VAD probability threshold (t) for VAD-based sliding window.
 
 ## en-de
 
