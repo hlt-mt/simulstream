@@ -59,7 +59,7 @@ class TestFixedCharsTextHistory(unittest.TestCase):
 class TestPunctuationTextHistory(unittest.TestCase):
     def setUp(self):
         self.config = SimpleNamespace()
-        self.punctuation_text_history = PunctuationTextHistory(self.config, "")
+        self.punctuation_text_history = PunctuationTextHistory(self.config)
 
     def test_punctuation_last(self):
         """ Test PunctuationTextHistory method when the history ends with strong punctuation. """

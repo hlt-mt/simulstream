@@ -274,9 +274,9 @@ class FixedWordsTextHistory:
     Fixed Words textual history selection method that retains a pre-defined
     number of words in the history (*history_words*).
     """
-    def __init__(self, config: SimpleNamespace, bow_prefix: str):
+    def __init__(self, config: SimpleNamespace):
         self.history_words = getattr(config, "history_words", 20)
-        self.bow_prefix = getattr(config, "bow_prefix", "▁pytest uts/")
+        self.bow_prefix = getattr(config, "bow_prefix", BOW_PREFIX)
         self.config = config
 
     def select_text_history(self, text_history: List[str]):
@@ -327,7 +327,7 @@ class PunctuationTextHistory:
 
     STRONG_PUNCTUATION = [".", "!", "?", ":", ";", "。"]
 
-    def __init__(self, config: SimpleNamespace, bow_prefix: str):
+    def __init__(self, config: SimpleNamespace):
         self.config = config
 
     def select_text_history(self, text_history):
