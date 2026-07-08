@@ -15,7 +15,45 @@
 import unittest
 from types import SimpleNamespace
 
-from simulstream.server.speech_processors.base_streamatt import PunctuationTextHistory
+from simulstream.server.speech_processors.base_streamatt import (
+    FixedCharsTextHistory,
+    FixedWordsTextHistory,
+    PunctuationTextHistory,
+)
+
+
+class TestFixedWordsTextHistory(unittest.TestCase):
+    def setUp(self):
+        self.history = FixedWordsTextHistory(SimpleNamespace(history_words=3))
+
+    def test_word_level(self):
+        """ Trims history to the last 3 BOW-started words in space-separated languages. """
+        en_history = ["▁I", "▁am", "▁going", "▁to", "▁New", "▁York"]
+        self.assertEqual(
+            self.history.select_text_history(en_history),
+            ["▁to", "▁New", "▁York"])
+
+    def test_word_level_with_subwords(self):
+        """ Subword continuations (no ▁) are included in the retained word. """
+        en_history = ["▁inter", "nation", "al", "▁meet", "ing", "▁today"]
+        self.assertEqual(
+            self.history.select_text_history(en_history),
+            ["▁inter", "nation", "al", "▁meet", "ing", "▁today"])
+
+
+class TestFixedCharsTextHistory(unittest.TestCase):
+    def setUp(self):
+        self.history = FixedCharsTextHistory(SimpleNamespace(history_chars=3))
+
+    def test_char_level(self):
+        """ Keeps the last 3 tokens for character-level languages. """
+        zh_history = ['大', '家', '好', '我', '在', '谈', '论']
+        self.assertEqual(self.history.select_text_history(zh_history), ['在', '谈', '论'])
+
+    def test_shorter_than_limit(self):
+        """ Returns the full history when it is shorter than history_chars. """
+        zh_history = ['大', '家']
+        self.assertEqual(self.history.select_text_history(zh_history), ['大', '家'])
 
 
 class TestPunctuationTextHistory(unittest.TestCase):

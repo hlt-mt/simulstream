@@ -123,7 +123,7 @@ class MWERSegmenterBasedLatencyScorer(LatencyScorer):
                     encoded = [" ".join(self.segmenter.encode(p)) for p in pieces]
                     tokenized_text.append(" ### ".join(encoded))
                 else:
-                    tokenized_text.append(" ".join(self.segmenter.encode(text[i].strip())))
+                    tokenized_text.append(" ".join(self.segmenter.encode(text[i])))
             return "\n".join(tokenized_text)
         else:
             return "\n".join(text)
