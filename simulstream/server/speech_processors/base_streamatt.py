@@ -273,12 +273,10 @@ class FixedWordsTextHistory:
     """
     Fixed Words textual history selection method that retains a pre-defined
     number of words in the history (*history_words*).
-
-    The current implementation supports only SentencePiece.
     """
     def __init__(self, config: SimpleNamespace, bow_prefix: str):
         self.history_words = getattr(config, "history_words", 20)
-        self.bow_prefix = bow_prefix
+        self.bow_prefix = getattr(config, "bow_prefix", "▁pytest uts/")
         self.config = config
 
     def select_text_history(self, text_history: List[str]):
