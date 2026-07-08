@@ -40,7 +40,7 @@ prompt: "{PROMPT}"
 attn_layer: {ATTN_LAYER}
 attn_head: {ATTN_HEAD}
 average_attn_over_layers:  {ATTN_AVG}
-cutoff_frame_num: {CUTOFF_FRAME}               # tokens attending the last N audio frames are withheld
+cutoff_frame_num: {CUTOFF_FRAME}
 ```
 
 Parameters to be replaced:
