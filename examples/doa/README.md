@@ -15,8 +15,6 @@ which generated tokens can be safely emitted at each step.
 | `simulstream.server.speech_processors.phi4multimodal_doa.Phi4MultimodalDOA` | `microsoft/Phi-4-multimodal-instruct` |
 | `simulstream.server.speech_processors.qwenomni_doa.Qwen3OmniDOA` | `Qwen/Qwen3-Omni-30B-A3B-Instruct` |
 
-DOA is supported in the `simulstream_inference` backend.
-
 ## Configuration
 
 A DOA config file is a YAML file passed via `--speech-processor-config`. Below is a full annotated 
