@@ -53,7 +53,7 @@ hf = [
 
 canary = [
     "Cython",
-    "nemo_toolkit[asr]==2.4.0",
+    "nemo_toolkit[asr]==3.0.0",
 ]
 
 vad = [
